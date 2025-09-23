@@ -34,8 +34,8 @@ except Exception:
             self.fit(X); return self.transform(X)
 
 # ----------------- PAGE -----------------
-st.set_page_config(page_title="Advanced Attacker Scouting System", layout="wide")
-st.title("🔎 Advanced Attacker Scouting System")
+st.set_page_config(page_title="Advanced Central Midfielder Scouting System", layout="wide")
+st.title("🔎 Advanced Central Midfielder Scouting System")
 st.caption("Use the sidebar to shape your pool. Each section explains what you’re seeing and why.")
 
 # ----------------- CONFIG -----------------
@@ -95,11 +95,10 @@ POLAR_METRICS = [
 ]
 
 # -------- Position filter (central midfielders) --------
-cm_prefixes = ('LCMF', 'RCMF', 'LDMF', 'RDMF', 'DMF', 'CMF')
+CM_PREFIXES = ('LCMF', 'RCMF', 'LDMF', 'RDMF', 'DMF', 'CMF')
 
-def cm_position_filter(pos):
-    pos_clean = str(pos).strip().upper()
-    return pos_clean.startswith(cm_prefixes)
+def position_filter(pos):
+    return str(pos).strip().upper().startswith(CM_PREFIXES)
 
 # -------------------------------------------
 
