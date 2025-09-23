@@ -531,7 +531,7 @@ assists_safe = assists if isinstance(assists, (int, float)) else 0
 
 fig.text(0.06, 0.94, f"{player_name} — Performance Chart",
          fontsize=16, weight='bold', ha='left', color='#111827')
-fig.text(0.06, 0.915, f"{team} • {league} • {nineties} 90's • Goals {int(goals_safe)} Assists • {int(assists_safe)}",
+fig.text(0.06, 0.915, f"{team} • {league} • {nineties} 90's • Goals: {int(goals_safe)} • Assists: {int(assists_safe)}",
          fontsize=9, ha='left', color='#6b7280')
 
 st.pyplot(fig, use_container_width=True)
