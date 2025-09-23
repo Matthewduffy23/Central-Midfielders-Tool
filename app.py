@@ -104,35 +104,67 @@ def position_filter(pos):
 
 # Role buckets
 ROLES = {
-     'Playmaker Midfielder': {
-        'metrics': {
-            'Passes per 90': 2, 'Accurate passes, %': 2, 'Forward passes per 90': 2.5,
-            'Accurate forward passes, %': 2.5, 'Progressive passes per 90': 3,
-            'Deep completions per 90': 2, 'Passes to final third per 90': 3,
-            'Smart passes per 90': 1.5, 'xA per 90': 2, 'Accurate long passes, %': 2,
-            'Passes to penalty area per 90': 1.5
+    "Deep Playmaker Midfielder": {
+        "metrics": {
+            "Passes per 90": 2,
+            "Accurate passes, %": 2,
+            "Forward passes per 90": 2.5,
+            "Accurate forward passes, %": 2.5,
+            "Progressive passes per 90": 3,
+            "Passes to final third per 90": 2.5,
+            "Accurate long passes, %": 2,
         }
     },
-    'Defensive Midfielder': {
-        'metrics': {
-            'Defensive duels per 90': 4, 'Defensive duels won, %': 4, 'PAdj Interceptions': 3,
-            'Aerial duels per 90': 0.5, 'Aerial duels won, %': 1
+
+    "Advanced Playmaker Midfielder": {
+        "metrics": {
+            "Deep completions per 90": 1.5,
+            "Smart passes per 90": 2,
+            "xA per 90": 4,
+            "Passes to penalty area per 90": 2,
         }
     },
-    'Attacking Midfielder': {
-        'metrics': {
-            'Dribbles per 90': 2, 'Successful dribbles, %': 1, 'Progressive runs per 90': 2,
-            'Non-penalty goals per 90': 2, 'xG per 90': 2, 'xA per 90': 2, 'Shots per 90': 1.5,
-            'Touches in box per 90': 2, 'Passes to penalty area per 90': 1,
-            'Smart passes per 90': 1, 'Deep completions per 90': 1
+
+    "Defensive Midfielder": {
+        "metrics": {
+            "Defensive duels per 90": 4,
+            "Defensive duels won, %": 4,
+            "PAdj Interceptions": 3,
+            "Aerial duels per 90": 0.5,
+            "Aerial duels won, %": 1,
         }
     },
-    'All In': {
-        'metrics': {
-            'Progressive passes per 90': 2, 'xA per 90': 1, 'PAdj Interceptions': 2,
-            'Progressive runs per 90': 2, 'Defensive duels won, %': 2, 'Passes to penalty area per 90': 2,
+
+    "Goal Threat Midfielder": {
+        "metrics": {
+            "Non-penalty goals per 90": 3,
+            "xG per 90": 3,
+            "Shots per 90": 1.5,
+            "Touches in box per 90": 2,
         }
-    }
+    },
+
+    "Ball-Carrying Midfielder": {
+        "metrics": {
+            "Dribbles per 90": 4,
+            "Successful dribbles, %": 2,
+            "Progressive runs per 90": 3,
+            "Accelerations per 90": 3,
+        }
+    },
+
+    "All In": {
+        "metrics": {
+            "Progressive passes per 90": 2,
+            "xA per 90": 2,
+            "PAdj Interceptions": 2,
+            "Defensive duels per 90": 2,
+            "Progressive runs per 90": 2,
+            "Defensive duels won, %": 2,
+            "Passes to penalty area per 90": 2,
+            "Non-penalty goals per 90": 2,
+        }
+    },
 }
 
 
