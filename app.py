@@ -385,78 +385,122 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (between tables and single-player) -----------------
+# ----------------- METRIC LEADERBOARD (deluxe) -----------------
 st.markdown("---")
 st.header("📊 Metric Leaderboard")
 
 with st.expander("Leaderboard settings", expanded=False):
-    # pick a metric from your FEATURES list; default to Progressive runs per 90
     default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
     metric_pick = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
     sort_mode = st.radio("Order by", ["Actual value", "League percentile"], index=0, horizontal=True)
-    top_n_leader = st.slider("Show top N", 5, 50, 25, 5)
+    top_n_leader = st.slider("Show top N", 5, 40, 20, 5)
+    show_team = st.checkbox("Show team & league in label", True)
+    show_pct_chips = st.checkbox("Show percentile chips", True)
+    compact_labels = st.checkbox("Compact player labels", False, help="Shortens labels if they get too long.")
 
-# build the plot frame from the already-filtered df_f (sidebar-linked)
+# prepare data
 val_col = metric_pick
 pct_col = f"{metric_pick} Percentile"
-
 plot_df = (
     df_f[["Player", "Team", "League", val_col, pct_col]]
     .dropna(subset=[val_col, pct_col])
     .copy()
 )
 
-# choose the sort key
-if sort_mode == "League percentile":
-    sort_key = pct_col
-else:
-    sort_key = val_col
-
+# sorting
+sort_key = pct_col if sort_mode == "League percentile" else val_col
 plot_df = plot_df.sort_values(sort_key, ascending=False).head(int(top_n_leader)).reset_index(drop=True)
 
-# color by percentile (0 → red, 50 → yellow, 100 → green)
-# Smooth 3-stop gradient: red → yellow → green
+# labels
+def make_label(r):
+    base = r["Player"]
+    if compact_labels:
+        base = re.sub(r"^([A-Z])(\w+)\s+", r"\1. ", base)  # "John Smith" -> "J. Smith"
+    if show_team:
+        return f"{base} — {r['Team']} ({r['League']})"
+    return base
+y_labels = plot_df.apply(make_label, axis=1)
+
+# color by percentile (smooth red->yellow->green)
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 cmap = LinearSegmentedColormap.from_list("ryg", ["#be2a3e", "#f4d166", "#22c55e"])
 norm = Normalize(vmin=0, vmax=100)
 colors = [cmap(norm(p)) for p in plot_df[pct_col].values]
 
-# figure styling
-fig, ax = plt.subplots(figsize=(10.5, 7.2), dpi=180)
-fig.patch.set_facecolor("#f3f4f6")  # page bg
-ax.set_facecolor("#ffffff")         # plot bg
+# highlight the selected player, if present in the top N
+highlight_ix = None
+if 'player_name' in globals() and isinstance(player_name, str):
+    hits = np.where(plot_df["Player"].values == player_name)[0]
+    highlight_ix = int(hits[0]) if len(hits) else None
 
-# horizontal bars
-y_labels = plot_df["Player"] + " — " + plot_df["Team"] + " (" + plot_df["League"] + ")"
-ax.barh(y_labels, plot_df[val_col].values, color=colors, edgecolor="#1f2937", linewidth=0.6)
+# figure
+fig_w, fig_h, dpi = 11.5, 7.6, 220
+fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
+fig.patch.set_facecolor("#f3f4f6")
+ax.set_facecolor("#ffffff")
 
-# value labels on bars
-for i, v in enumerate(plot_df[val_col].values):
-    ax.text(
-        v, i, f" {v:.2f}" if isinstance(v, float) else f" {v}",
-        va="center", ha="left", fontsize=9, color="#111827"
-    )
+# alternating row stripes (soft)
+stripe_color = "#f5f7fb"
+for i in range(len(plot_df)):
+    if i % 2 == 1:
+        ax.axhspan(i-0.5, i+0.5, color=stripe_color, zorder=0)
 
-# aesthetics
-ax.invert_yaxis()  # largest on top
-ax.set_xlabel(val_col, fontweight="bold")
-ax.set_ylabel("")  # clean
+# bars
+bars = ax.barh(y_labels, plot_df[val_col].values, color=colors, edgecolor="#111827", linewidth=0.6, zorder=2)
+
+# subtle grid & spines
 ax.grid(axis="x", color="#e5e7eb", linewidth=0.8)
-for spine in ax.spines.values():
-    spine.set_edgecolor("#d1d5db")
+for s in ax.spines.values():
+    s.set_edgecolor("#d1d5db")
 
-# legend proxy showing percentile color scale
-from matplotlib.colorbar import ColorbarBase
-cax = fig.add_axes([0.92, 0.16, 0.02, 0.68])
-ColorbarBase(cax, cmap=cmap, norm=norm, orientation="vertical")
-cax.set_title("%", fontsize=9, pad=6)
+# keep the biggest on top
+ax.invert_yaxis()
 
-st.caption(
-    f"Sorted by **{sort_key}** • Colors reflect **league percentile** ({pct_col}). "
-    f"Based on current filters: leagues, minutes, age, value, strength, etc."
-)
+# x label
+ax.set_xlabel(val_col, fontweight="bold")
+ax.set_ylabel("")
+
+# left tick label styling
+ax.tick_params(axis='y', labelsize=9, colors="#111827")
+ax.tick_params(axis='x', labelsize=9, colors="#374151")
+
+# value badges (right end of bars)
+for i, (rect, val) in enumerate(zip(bars, plot_df[val_col].values)):
+    x = rect.get_width()
+    y = rect.get_y() + rect.get_height()/2
+    txt = f"{val:.2f}" if isinstance(val, float) else f"{val}"
+    ax.text(x + (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.01, y, txt,
+            va="center", ha="left", fontsize=9, color="#111827",
+            bbox=dict(boxstyle="round,pad=0.25", fc="#eef2ff", ec="#c7d2fe", lw=0.8, alpha=0.9))
+
+# percentile chips at far right
+if show_pct_chips:
+    x_max = ax.get_xlim()[1]
+    for i, p in enumerate(plot_df[pct_col].values):
+        chip = f"{int(round(p))}ᵗʰ %"
+        ax.text(x_max, i, chip, va="center", ha="right", fontsize=8.5, color="#111827",
+                bbox=dict(boxstyle="round,pad=0.25", fc="#fef3c7", ec="#facc15", lw=0.8, alpha=0.95))
+
+# highlight selected player row (border glow + left marker)
+if highlight_ix is not None:
+    # subtle outline rectangle around the row
+    ax.axhspan(highlight_ix-0.5, highlight_ix+0.5, color="#ffffff", alpha=0.0,
+               edgecolor="#C81E1E", linewidth=1.8, zorder=3)
+    # left marker
+    ax.text(ax.get_xlim()[0], highlight_ix, "⬤", va="center", ha="left", color="#C81E1E", fontsize=9)
+
+# title & subtitle (compact, informative)
+ttl_metric = metric_pick
+ttl_sorted = "percentile" if sort_key == pct_col else "value"
+fig.suptitle(f"Top {len(plot_df)} — {ttl_metric}", x=0.06, y=0.96, ha="left",
+             fontsize=16, fontweight="bold", color="#111827")
+fig.text(0.06, 0.935,
+         f"Ordered by {ttl_sorted}. Bar color = league percentile. Filters from sidebar are applied.",
+         fontsize=10, color="#6b7280", ha="left")
+
 st.pyplot(fig, use_container_width=True)
 # ----------------- END METRIC LEADERBOARD -----------------
+
 
 
 # ----------------- SINGLE PLAYER ROLE PROFILE (REPLACED) -----------------
