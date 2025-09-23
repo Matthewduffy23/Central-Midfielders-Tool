@@ -534,7 +534,7 @@ fig.text(0.06, 0.94, f"{player_name} — Performance Chart",
 fig.text(0.06, 0.915, f"{team} • {league} • {nineties} 90's • G/A: {int(goals_safe)}/{int(assists_safe)}",
          fontsize=9, ha='left', color='#6b7280')
 
-        st.pyplot(fig, use_container_width=True)
+st.pyplot(fig, use_container_width=True)
 
    # ---------- 2) NOTES: Style / Strengths / Weaknesses ----------
 
