@@ -385,6 +385,80 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
+# ----------------- METRIC LEADERBOARD (between tables and single-player) -----------------
+st.markdown("---")
+st.header("📊 Metric Leaderboard")
+
+with st.expander("Leaderboard settings", expanded=False):
+    # pick a metric from your FEATURES list; default to Progressive runs per 90
+    default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
+    metric_pick = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
+    sort_mode = st.radio("Order by", ["Actual value", "League percentile"], index=0, horizontal=True)
+    top_n_leader = st.slider("Show top N", 5, 50, 25, 5)
+
+# build the plot frame from the already-filtered df_f (sidebar-linked)
+val_col = metric_pick
+pct_col = f"{metric_pick} Percentile"
+
+plot_df = (
+    df_f[["Player", "Team", "League", val_col, pct_col]]
+    .dropna(subset=[val_col, pct_col])
+    .copy()
+)
+
+# choose the sort key
+if sort_mode == "League percentile":
+    sort_key = pct_col
+else:
+    sort_key = val_col
+
+plot_df = plot_df.sort_values(sort_key, ascending=False).head(int(top_n_leader)).reset_index(drop=True)
+
+# color by percentile (0 → red, 50 → yellow, 100 → green)
+# Smooth 3-stop gradient: red → yellow → green
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+cmap = LinearSegmentedColormap.from_list("ryg", ["#be2a3e", "#f4d166", "#22c55e"])
+norm = Normalize(vmin=0, vmax=100)
+colors = [cmap(norm(p)) for p in plot_df[pct_col].values]
+
+# figure styling
+fig, ax = plt.subplots(figsize=(10.5, 7.2), dpi=180)
+fig.patch.set_facecolor("#f3f4f6")  # page bg
+ax.set_facecolor("#ffffff")         # plot bg
+
+# horizontal bars
+y_labels = plot_df["Player"] + " — " + plot_df["Team"] + " (" + plot_df["League"] + ")"
+ax.barh(y_labels, plot_df[val_col].values, color=colors, edgecolor="#1f2937", linewidth=0.6)
+
+# value labels on bars
+for i, v in enumerate(plot_df[val_col].values):
+    ax.text(
+        v, i, f" {v:.2f}" if isinstance(v, float) else f" {v}",
+        va="center", ha="left", fontsize=9, color="#111827"
+    )
+
+# aesthetics
+ax.invert_yaxis()  # largest on top
+ax.set_xlabel(val_col, fontweight="bold")
+ax.set_ylabel("")  # clean
+ax.grid(axis="x", color="#e5e7eb", linewidth=0.8)
+for spine in ax.spines.values():
+    spine.set_edgecolor("#d1d5db")
+
+# legend proxy showing percentile color scale
+from matplotlib.colorbar import ColorbarBase
+cax = fig.add_axes([0.92, 0.16, 0.02, 0.68])
+ColorbarBase(cax, cmap=cmap, norm=norm, orientation="vertical")
+cax.set_title("%", fontsize=9, pad=6)
+
+st.caption(
+    f"Sorted by **{sort_key}** • Colors reflect **league percentile** ({pct_col}). "
+    f"Based on current filters: leagues, minutes, age, value, strength, etc."
+)
+st.pyplot(fig, use_container_width=True)
+# ----------------- END METRIC LEADERBOARD -----------------
+
+
 # ----------------- SINGLE PLAYER ROLE PROFILE (REPLACED) -----------------
 st.subheader("🎯 Single Player Role Profile")
 player_name = st.selectbox("Choose player", sorted(df_f["Player"].unique()))
