@@ -491,16 +491,21 @@ if player_row.empty:
 else:
     ply = player_row.iloc[0]
     meta = player_row[["Team","League","Age","Contract expires","League Strength","Market value"]].iloc[0]
-    cA, cB, cC, cD = st.columns(4)
-cA.metric("Matches", matches)
-cB.metric("Minutes", minutes.replace(" mins",""))  # metric prefers plain number, but this is fine too
-cC.metric("Goals", goals)
-cD.metric("Assists", assists)
 
+    # --- New: pull extra stats ---
+    matches  = int(ply["Matches played"]) if "Matches played" in ply else "—"
+    minutes  = int(ply["Minutes played"]) if "Minutes played" in ply else "—"
+    goals    = int(ply["Goals"]) if "Goals" in ply else "—"
+    assists  = int(ply["Assists"]) if "Assists" in ply else "—"
+
+    # --- Caption with extra info ---
     st.caption(
-        f"**{player_name}** — {meta['Team']} • {meta['League']} • Age {int(meta['Age'])} • "
+        f"**{player_name}** — {meta['Team']} • {meta['League']} • "
+        f"Age {int(meta['Age']) if pd.notna(meta['Age']) else 'N/A'} • "
+        f"Apps: {matches}, {minutes} mins • G/A: {goals}/{assists} • "
         f"Contract: {pd.to_datetime(meta['Contract expires']).date() if pd.notna(meta['Contract expires']) else 'N/A'} • "
-        f"League Strength {meta['League Strength']:.1f} • Value €{meta['Market value']:,.0f}"
+        f"League Strength {meta['League Strength']:.1f} • "
+        f"Value €{meta['Market value']:,.0f}"
     )
 
     # Build pool & compute player percentiles within that pool
