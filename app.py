@@ -504,7 +504,7 @@ EXTRA_METRICS = [
 ]
 STYLE_MAP = {
     'Defensive duels per 90': {
-        'style': 'Ball Winner,
+        'style': 'Ball Winner',
         'sw': 'Defensive Duels',
     },
     'Aerial duels won, %': {
