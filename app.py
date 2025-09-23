@@ -104,7 +104,7 @@ def position_filter(pos):
 
 # Role buckets
 ROLES = {
-    "Deep Playmaker Midfielder": {
+    "Deep Playmaker CM": {
         "metrics": {
             "Passes per 90": 2,
             "Accurate passes, %": 2,
@@ -116,7 +116,7 @@ ROLES = {
         }
     },
 
-    "Advanced Playmaker Midfielder": {
+    "Advanced Playmaker CM": {
         "metrics": {
             "Deep completions per 90": 1.5,
             "Smart passes per 90": 2,
@@ -125,7 +125,7 @@ ROLES = {
         }
     },
 
-    "Defensive Midfielder": {
+    "Defensive Midfielder DM": {
         "metrics": {
             "Defensive duels per 90": 4,
             "Defensive duels won, %": 4,
@@ -135,7 +135,7 @@ ROLES = {
         }
     },
 
-    "Goal Threat Midfielder": {
+    "Goal Threat CM": {
         "metrics": {
             "Non-penalty goals per 90": 3,
             "xG per 90": 3,
@@ -144,7 +144,7 @@ ROLES = {
         }
     },
 
-    "Ball-Carrying Midfielder": {
+    "Ball-Carrying CM": {
         "metrics": {
             "Dribbles per 90": 4,
             "Successful dribbles, %": 2,
