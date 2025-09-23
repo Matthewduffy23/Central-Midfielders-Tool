@@ -491,6 +491,12 @@ if player_row.empty:
 else:
     ply = player_row.iloc[0]
     meta = player_row[["Team","League","Age","Contract expires","League Strength","Market value"]].iloc[0]
+    cA, cB, cC, cD = st.columns(4)
+cA.metric("Matches", matches)
+cB.metric("Minutes", minutes.replace(" mins",""))  # metric prefers plain number, but this is fine too
+cC.metric("Goals", goals)
+cD.metric("Assists", assists)
+
     st.caption(
         f"**{player_name}** — {meta['Team']} • {meta['League']} • Age {int(meta['Age'])} • "
         f"Contract: {pd.to_datetime(meta['Contract expires']).date() if pd.notna(meta['Contract expires']) else 'N/A'} • "
