@@ -572,7 +572,7 @@ STYLE_MAP = {
     },
     'Progressive passes per 90': {
         'style': 'Playmaker',
-        'sw': 'Ball progression via passes,
+        'sw': 'Ball progression via passes',
     },
     'Smart passes per 90': {
         'style': 'Attempts through balls',
