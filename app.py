@@ -711,7 +711,7 @@ role_scores = table_style_role_scores_from_row(player_row.iloc[0])
 
 # Best role line — choose ONLY among the first three roles in ROLES
 if role_scores:
-    role_list = list(ROLES.keys())[:3]
+    role_list = list(ROLES.keys())[:5]
     candidates = [(r, role_scores.get(r, np.nan)) for r in role_list]
     candidates = [(r, v) for r, v in candidates if pd.notna(v)]
     if candidates:
