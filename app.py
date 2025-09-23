@@ -521,12 +521,19 @@ else:
     vals   = [pct_map[m] for m in POLAR_METRICS if m in pct_map]
     if vals:
         fig = plot_attacker_polar_chart(labels, vals)
-        team = str(ply["Team"]); league = str(ply["League"])
-        fig.text(0.06, 0.94, f"{player_name} — Performance (pool size: {len(pool_df):,})",
-                 fontsize=16, weight='bold', ha='left', color='#111827')
-        fig.text(0.06, 0.915, f"Against selected pool • Team: {team} • Native league: {league}",
-                 fontsize=9, ha='left', color='#6b7280')
-        st.pyplot(fig, use_container_width=True)
+team = str(ply["Team"]); league = str(ply["League"])
+
+# Minutes → 90s; goals/assists already parsed above
+minutes_safe = minutes if isinstance(minutes, (int, float)) else 0
+nineties = round(minutes_safe / 90.0, 1)
+goals_safe = goals if isinstance(goals, (int, float)) else 0
+assists_safe = assists if isinstance(assists, (int, float)) else 0
+
+fig.text(0.06, 0.94, f"{player_name} — Performance Chart",
+         fontsize=16, weight='bold', ha='left', color='#111827')
+fig.text(0.06, 0.915, f"{team} • {league} • {nineties} 90's • G/A: {int(goals_safe)}/{int(assists_safe)}",
+         fontsize=9, ha='left', color='#6b7280')
+
 
    # ---------- 2) NOTES: Style / Strengths / Weaknesses ----------
 
