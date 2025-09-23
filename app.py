@@ -389,6 +389,8 @@ def clean_attacker_label(s: str) -> str:
     s = s.replace("xA per 90", "xA")
     s = s.replace("Defensive duels won, %", "Defensive Duel %")
     s = s.replace("Passes per 90", "Passes")
+    s = s.replace("Dribbles per 90", "Dribbles")
+    s = s.replace("Defensive duels per 90", "Defensive duels")
     s = s.replace("Touches in box per 90", "Touches in box")
     s = s.replace("Progressive passes per 90", "Progressive Passes")
     s = s.replace("Progressive runs per 90", "Progressive runs")
@@ -502,7 +504,7 @@ EXTRA_METRICS = [
 ]
 STYLE_MAP = {
     'Defensive duels per 90': {
-        'style': 'High work rate',
+        'style': 'Ball Winner,
         'sw': 'Defensive Duels',
     },
     'Aerial duels won, %': {
@@ -523,10 +525,10 @@ STYLE_MAP = {
     },
     'Shots per 90': {
         'style': 'Takes many shots',
-        'sw': 'Shot Volume',
+        'sw': None,
     },
     'PAdj Interceptions': {
-        'style': 'Interceptor',
+        'style': 'Cuts out opposition attacks',
         'sw': 'Defensive positioning',
     },
     'Accurate forward passes, %': {
@@ -554,15 +556,15 @@ STYLE_MAP = {
         'sw': 'Involvement',
     },
     'Accurate passes, %': {
-        'style': None,
-        'sw': 'Retention',
+        'style': 'Controller',
+        'sw': 'Passing Retention',
     },
     'xA per 90': {
         'style': 'Creates goal scoring chances',
         'sw': 'Creativity',
     },
     'Passes to penalty area per 90': {
-        'style': None,
+        'style': 'Advanced Playmaker',
         'sw': 'Passes to Penalty Area',
     },
     'Deep completions per 90': {
@@ -570,7 +572,7 @@ STYLE_MAP = {
         'sw': None,
     },
     'Progressive passes per 90': {
-        'style': 'Playmaker',
+        'style': 'Deep Playmaker',
         'sw': 'Ball progression via passes',
     },
     'Smart passes per 90': {
@@ -711,13 +713,13 @@ st.dataframe(styled, use_container_width=True)
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
 st.markdown("---")
-st.header("📈 Scatter — Non-penalty Goals vs xG")
+st.header("📈 Scatterplot")
 
 with st.expander("Scatter settings", expanded=False):
     # Axis metric picks (defaults as requested)
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
-    x_default = "Non-penalty goals per 90"
-    y_default = "xG per 90"
+    x_default = "Progressive passes per 90"
+    y_default = "Progressive runs per 90"
     x_metric = st.selectbox(
         "X-axis metric",
         [c for c in FEATURES if c in numeric_cols],
@@ -996,6 +998,7 @@ with st.expander("Radar settings", expanded=False):
 def clean_label_r(s: str) -> str:
     s = s.replace("Non-penalty goals per 90", "Non-Pen Goals")
     s = s.replace("xA per 90", "xA")
+    s = s.replace("Defensive duels won, %", "Def Duel %")
     s = s.replace("Defensive duels per 90", "Defensive duels").replace("Passes per 90", "Passes")
     s = s.replace("Progressive runs per 90", "Progressive Runs").replace("Progressive passes per 90", "Progressive Passes")
     s = s.replace("Passes to penalty area per 90", "Passes to Pen Area").replace("Accurate passes, %", "Pass %")
