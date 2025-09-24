@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ======================= SNAPSHOT — compact, aligned, 5 role chips =======================
+# ======================= SNAPSHOT — strict header rows + uniform bars =======================
 import io
 import numpy as np
 import matplotlib.pyplot as plt
@@ -886,7 +886,7 @@ with st.expander("Snapshot settings", expanded=False):
     show_target = st.checkbox("Show 50th percentile guide", True)
     round_vals  = st.selectbox("Round actual values to", [0,1,2], index=1)
 
-# -------- guards --------
+# ---- guards
 if 'player_row' not in globals() or player_row.empty:
     st.info("Pick a player above."); st.stop()
 ply = player_row.iloc[0]
@@ -894,7 +894,7 @@ pool_df = build_pool_df()
 if pool_df.empty:
     st.warning("Comparison pool is empty. Add at least one league."); st.stop()
 
-# -------- percentiles vs pool --------
+# ---- percentiles vs pool
 def pct_in_pool(series, val):
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty or pd.isna(val): return np.nan
@@ -906,7 +906,7 @@ feat_cols = [f for f in FEATURES if f in pool_df.columns]
 for f in feat_cols: pool_df[f] = pd.to_numeric(pool_df[f], errors="coerce")
 PCT = {f: pct_in_pool(pool_df[f], ply.get(f)) for f in feat_cols}
 
-# -------- role scores (best + first 5) --------
+# ---- role scores
 def safe_role_scores(row):
     if 'table_style_role_scores_from_row' in globals():
         return table_style_role_scores_from_row(row)
@@ -922,7 +922,7 @@ best_role = max(role_scores.items(), key=lambda kv: kv[1])[0] if role_scores els
 best_score = role_scores.get(best_role, np.nan)
 first_five_roles = [r for r in list(ROLES.keys())[:5] if r in role_scores][:5]
 
-# -------- groups (Possession extended) --------
+# ---- groups (Possession extended) (0–100 for all)
 ATTACK = [
     "Touches in box per 90","Offensive duels per 90","Accelerations per 90",
     "Progressive runs per 90","xG per 90","Shots per 90",
@@ -944,7 +944,7 @@ ATTACK = [m for m in ATTACK if m in feat_cols]
 POSSES = [m for m in POSSES if m in feat_cols]
 DEFENS = [m for m in DEFENS if m in feat_cols]
 
-# -------- helpers --------
+# ---- helpers
 def short(s: str) -> str:
     s = s.replace(" per 90","/90").replace("per 90","/90")
     s = s.replace("Non-penalty goals","NP Goals").replace("Shots on target, %","SoT %")
@@ -957,7 +957,7 @@ def rgg_color(p):  # red -> gold -> green
     p = max(0.0, min(100.0, float(p))) / 100.0
     return LinearSegmentedColormap.from_list("rgg", ["#C81E1E","#F4D166","#22C55E"])(p)
 
-# -------- theming --------
+# ---- theming
 PAGE_BG   = "#0b0c10"
 HEADER_BG = "#0f1115"
 TEXT_LG   = "#e5e7eb"
@@ -968,54 +968,38 @@ CHIP_GREY = "#e5e7eb"
 TRACK_BG  = "#1a1e24"
 GRID_COL  = "#2a2e36"
 
-# -------- figure (uniform widths; Possession taller) --------
-W, H, DPI = 13.8, 8.8, 300
+# ---- figure (uniform bars; possession taller)
+W, H, DPI = 13.8, 9.4, 300
 fig = plt.figure(figsize=(W, H), dpi=DPI, layout="constrained")
-fig.set_constrained_layout_pads(w_pad=0.28, h_pad=0.34)
+fig.set_constrained_layout_pads(w_pad=0.28, h_pad=0.36)
 fig.patch.set_facecolor(PAGE_BG)
 
-# Header taller so we can space name/roles/meta/badges
+# Header gets more height to fit 5 stacked rows nicely
 gs = gridspec.GridSpec(
     nrows=3, ncols=2, figure=fig,
-    height_ratios=[0.78, 1.0, 1.08],   # possession pane gets a touch more height
+    height_ratios=[1.05, 1.0, 1.10],   # bottom is defensive; middle top panes
     width_ratios=[1, 1]
 )
 
-# ---------------- HEADER ----------------
+# ================= HEADER (strict rows) =================
 axH = fig.add_subplot(gs[0, :])
 axH.set_xlim(0,1); axH.set_ylim(0,1); axH.axis("off")
 axH.add_artist(Rectangle((0,0), 1, 1, facecolor=HEADER_BG, edgecolor="none"))
 
-# (A) Name, best score, and 5 role chips on the SAME LINE (no overlap)
-name = str(ply.get("Player","")).strip()
-name_x, name_y = 0.032, 0.86
-axH.text(name_x, name_y, name, color=TEXT_LG, fontsize=21, fontweight="bold", ha="left", va="center")
+row_y = [0.88, 0.72, 0.58, 0.44, 0.30]  # 5 rows: meta/str/weak/style/role-chips
+name_x = 0.032
 
-# compute a safe x start to the right of the name
-# approximate text width in figure fraction
+# Row 0: Name + BEST score pill (right beside)
+name = str(ply.get("Player","")).strip()
+axH.text(name_x, 0.94, name, color=TEXT_LG, fontsize=21, fontweight="bold", ha="left", va="center")
 approx_char_w = 0.0092
 after_name_x = min(0.96, name_x + len(name)*approx_char_w + 0.02)
-
-# best-score pill (right beside name)
 if pd.notna(best_score):
-    axH.text(after_name_x, name_y, f"{int(round(best_score))}",
-             color="#07120b", fontsize=9.6, va="center",
-             bbox=dict(boxstyle="round,pad=0.22", fc=rgg_color(best_score), ec="none"))
-    after_name_x += 0.04
+    axH.text(after_name_x, 0.94, f"{int(round(best_score))}",
+             color="#07120b", fontsize=10, va="center",
+             bbox=dict(boxstyle="round,pad=0.24", fc=rgg_color(best_score), ec="none"))
 
-# five role chips inline; value pill tight to label
-x = after_name_x
-for role in first_five_roles:
-    s = role_scores.get(role, np.nan)
-    lab = axH.text(x, name_y, role, color="#0f172a", fontsize=8.3, va="center",
-                   bbox=dict(boxstyle="round,pad=0.21", fc=CHIP_GREY, ec="none"))
-    x += 0.16
-    axH.text(x, name_y, f"{int(round(s))}", color="#07120b", fontsize=8.1, va="center",
-             bbox=dict(boxstyle="round,pad=0.18", fc=rgg_color(s), ec="none"))
-    x += 0.05
-    if x > 0.97: break
-
-# (B) Metadata on its own line using the extra space
+# Row 1: position / age / league / mins / 90s / goals / xG(total) / assists
 mins = int(ply.get("Minutes played",0))
 n90s = mins/90.0
 goals = int(ply.get("Goals",0)) if pd.notna(ply.get("Goals")) else 0
@@ -1026,49 +1010,59 @@ elif "xG per 90" in ply.index and pd.notna(ply["xG per 90"]):
     xg_total = float(ply["xG per 90"]) * n90s
 else:
     xg_total = np.nan
-
 meta = [
     ply.get("Position","—"),
     f"Age {int(ply.get('Age',0))}",
     str(ply.get("League","—")),
-    f"Mins {mins:,}",
-    f"90’s {n90s:.1f}",
-    f"Goals {goals}",
-    f"xG {xg_total:.2f}" if not np.isnan(xg_total) else None,
+    f"Mins {mins:,}", f"90’s {n90s:.1f}",
+    f"Goals {goals}", f"xG {xg_total:.2f}" if not np.isnan(xg_total) else None,
     f"Assists {assists}",
 ]
 meta = [m for m in meta if m]
-axH.text(name_x, 0.70, "  •  ".join(meta), color=TEXT_MD, fontsize=9.2, ha="left")
+axH.text(name_x, row_y[0], "  •  ".join(meta), color=TEXT_MD, fontsize=9.4, ha="left", va="center")
 
-# (C) Badges row in three side-by-side lanes (no labels)
-def chip_band(x0, x1, y, items, color, max_items=20, pad=0.098):
+# Row 2/3/4: strengths | weaknesses | style — one lane each (chips)
+def chip_lane(y, items, color, x0=0.032, pad=0.100, x1=0.97, fs=8.2):
     x = x0
-    for t in items[:max_items]:
-        axH.text(x, y, t, color="#0b1220", fontsize=8, va="center",
+    for t in (items or [])[:20]:
+        axH.text(x, y, t, color="#0b1220", fontsize=fs, va="center",
                  bbox=dict(boxstyle="round,pad=0.20", fc=color, ec="none"))
         x += pad
         if x + pad > x1: break
 
-chip_band(0.032, 0.40, 0.54, strengths,  "#22c55e")  # green
-chip_band(0.41,  0.70, 0.54, weaknesses, "#f87171")  # red
-chip_band(0.71,  0.97, 0.54, styles,     "#60a5fa")  # blue
+chip_lane(row_y[1], strengths,  "#22c55e")
+chip_lane(row_y[2], weaknesses, "#f87171")
+chip_lane(row_y[3], styles,     "#60a5fa")
 
-# ---------------- PANELS (uniform bar sizes) ----------------
+# Row 5: role score chips (first five roles)
+x = name_x
+for role in first_five_roles:
+    s = role_scores.get(role, np.nan)
+    lab = axH.text(x, row_y[4], role, color="#0f172a", fontsize=8.4, va="center",
+                   bbox=dict(boxstyle="round,pad=0.20", fc=CHIP_GREY, ec="none"))
+    x += 0.16
+    axH.text(x, row_y[4], f"{int(round(s))}", color="#07120b", fontsize=8.1, va="center",
+             bbox=dict(boxstyle="round,pad=0.18", fc=rgg_color(s), ec="none"))
+    x += 0.05
+    if x > 0.97: break
+
+# ================= PANELS (identical geometry) =================
 PANEL_BG = HEADER_BG
-BAR_H   = 0.34   # identical everywhere
+BAR_H   = 0.34       # identical across panes
 BAR_GAP = 0.06
 STEP    = BAR_H + BAR_GAP
+XMIN, XMAX = -22, 110  # fixed scale so all bars same width
 
 def draw_panel(ax, title, metrics):
     n = len(metrics)
     htot = max(0, n*STEP - BAR_GAP)
-    ax.set_xlim(-22, 110)         # equal width for all panes
+    ax.set_xlim(XMIN, XMAX)
     ax.set_ylim(-0.5, htot-0.5)
     ax.axis("off")
-    ax.add_artist(Rectangle((-22,-0.5), 134, htot+0.5, facecolor=PANEL_BG, edgecolor="none"))
-    # section title above metrics
-    ax.text(-20, htot + 0.30, title, color=WHITE, fontsize=13.8, fontweight="bold", va="bottom")
-    # grid + optional 50th
+    ax.add_artist(Rectangle((XMIN,-0.5), XMAX-XMIN, htot+0.5, facecolor=PANEL_BG, edgecolor="none"))
+    # title above metrics
+    ax.text(XMIN+2, htot + 0.30, title, color=WHITE, fontsize=14.2, fontweight="bold", va="bottom")
+    # grid + 50th
     for xg in range(0, 101, 10):
         ax.plot([xg,xg],[-0.5,htot-0.5], color=GRID_COL, lw=0.6, zorder=1)
     if show_target:
@@ -1080,19 +1074,20 @@ def draw_panel(ax, title, metrics):
         p = PCT.get(m, np.nan)
         if not np.isnan(p):
             ax.barh(y, p, height=BAR_H, left=0, color=rgg_color(p), edgecolor="none", zorder=3)
-        # metric labels (white) and tiny inside value
-        ax.text(-21.6, y, short(m), ha="right", va="center", fontsize=8.5, color=WHITE)
+        # label + value (small)
+        ax.text(XMIN+0.4, y, short(m), ha="right", va="center", fontsize=8.6, color=WHITE)
         v = ply.get(m)
         sval = f"{v:.{round_vals}f}" if isinstance(v,(int,float,np.floating)) else (str(v) if v is not None else "")
-        ax.text(1.8, y, sval, ha="left", va="center", fontsize=7.3, color="#0b0c10", zorder=4)
+        ax.text(2.0, y, sval, ha="left", va="center", fontsize=7.2, color="#0b0c10", zorder=4)
         y -= STEP
 
-# Top row (Attacking | Possession — Possession can be taller by nature of more rows)
+# Top row
 axA = fig.add_subplot(gs[1,0]); draw_panel(axA, "Attacking",  ATTACK)
-axP = fig.add_subplot(gs[1,1]); draw_panel(axP, "Possession", POSSES)
+axP = fig.add_subplot(gs[1,1]); draw_panel(axP, "Possession", POSSES)  # can extend lower by having more rows
 
-# Bottom-left Defensive (gap bottom-right to mirror your layout)
+# Bottom-left
 axD = fig.add_subplot(gs[2,0]); draw_panel(axD, "Defensive",  DEFENS)
+# Bottom-right intentionally left blank (gap)
 
 st.pyplot(fig, use_container_width=True)
 
@@ -1100,10 +1095,9 @@ st.pyplot(fig, use_container_width=True)
 buf_png, buf_pdf = io.BytesIO(), io.BytesIO()
 fig.savefig(buf_png, format="png", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
 fig.savefig(buf_pdf, format="pdf", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
-st.download_button("⬇️ PNG snapshot", data=buf_png.getvalue(), file_name="snapshot_compact.png", mime="image/png")
-st.download_button("⬇️ PDF snapshot", data=buf_pdf.getvalue(), file_name="snapshot_compact.pdf", mime="application/pdf")
+st.download_button("⬇️ PNG snapshot", data=buf_png.getvalue(), file_name="snapshot_clean.png", mime="image/png")
+st.download_button("⬇️ PDF snapshot", data=buf_pdf.getvalue(), file_name="snapshot_clean.pdf", mime="application/pdf")
 # ===================== END SNAPSHOT =====================
-
 
 
 
