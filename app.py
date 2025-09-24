@@ -1108,24 +1108,27 @@ else:
     # ----------------- metric groups (label, percentile, actual_str) -----------------
     ATTACKING = []
     for lab, met in [
-        ("Non-Pen Goals", "Non-penalty goals per 90"),
-        ("xG per 90",     "xG per 90"),
-        ("Shots/90",      "Shots per 90"),
+        ("Crosses", "Crosses per 90"),
+        ("Crossing %", "Crosses per 90"),
+        ("Goals", "Non-penalty goals per 90"),
+        ("xG",     "xG per 90"),
+        ("xA per 90",       "xA per 90"),
+        ("Offensive duels",       "Offensive duels per 90"),
+        ("Progressive Runs",       "Progressive runs per 90"),
+        ("Shots",      "Shots per 90"),
         ("SoT %",         "Shots on target, %"),
         ("Touches in box","Touches in box per 90"),
-        ("Dribbles/90",   "Dribbles per 90"),
-        ("Dribble %",     "Successful dribbles, %"),
-        ("Accelerations", "Accelerations per 90"),
+
     ]:
         ATTACKING.append((lab, pct_of(met), val_of(met)[1]))
 
     DEFENSIVE = []
     for lab, met in [
-        ("Def Duels/90",  "Defensive duels per 90"),
-        ("Def Duel %",    "Defensive duels won, %"),
-        ("PAdj Interc.",  "PAdj Interceptions"),
-        ("Aerial/90",     "Aerial duels per 90"),
+        ("Aerial Duels",     "Aerial duels per 90"),
         ("Aerial %",      "Aerial duels won, %"),
+        ("Defensive Duels",  "Defensive duels per 90"),
+        ("Defensuve Duel %",    "Defensive duels won, %"),
+        ("PAdj Interceptions.",  "PAdj Interceptions"),
         ("Shots blocked", "Shots blocked per 90"),
         ("Succ. def acts","Successful defensive actions per 90"),
     ]:
@@ -1133,21 +1136,27 @@ else:
 
     POSSESSION = []
     for lab, met in [
-        ("Passes/90",       "Passes per 90"),
-        ("Pass %",          "Accurate passes, %"),
-        ("Forward/90",      "Forward passes per 90"),
-        ("Forward %",       "Accurate forward passes, %"),
-        ("Long/90",         "Long passes per 90"),
-        ("Long %",          "Accurate long passes, %"),
-        ("Prog Passes/90",  "Progressive passes per 90"),
-        ("Pass to 3rd/90",  "Passes to final third per 90"),
-        ("To 3rd %",        "Accurate passes to final third, %"),
-        ("Passes to PA/90", "Passes to penalty area per 90"),
-        ("To PA %",         "Accurate passes to penalty area, %"),
-        ("Smart passes",    "Smart passes per 90"),
-        ("Key passes",      "Key passes per 90"),
+        ("Accelerations", "Accelerations per 90"),
         ("Deep completions","Deep completions per 90"),
-        ("xA per 90",       "xA per 90"),
+        ("Dribbles",   "Dribbles per 90"),
+        ("Dribble %",     "Accurate crosses, %"),
+        ("Forward Passes",      "Forward passes per 90"),
+        ("Forward Pass %",       "Accurate forward passes, %"),
+        ("Key passes",      "Key passes per 90"),
+        ("Long Passes",         "Long passes per 90"),
+        ("Long Pass %",          "Accurate long passes, %"),
+        ("Passes",       "Passes per 90"),
+        ("Pass %",          "Accurate passes, %"),
+        ("Pass to F3rd",  "Passes to final third per 90"),
+        ("P F3rd%",        "Accurate passes to final third, %"),
+        ("Passes to PA", "Passes to penalty area per 90"),
+        ("Pass PA %",         "Accurate passes to penalty area, %"),
+        ("Prog Passes",  "Progressive passes per 90"),
+        ("Prog Pass %",  "Accurate progressive passes, %"),
+        ("Smart passes",    "Smart passes per 90"),
+        
+        
+        
     ]:
         POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
