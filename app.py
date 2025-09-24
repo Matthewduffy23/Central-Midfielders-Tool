@@ -385,28 +385,17 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (studio-crisp) -----------------
+# ----------------- METRIC LEADERBOARD (blue, light-grey) -----------------
 import re, numpy as np, matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.ticker import FuncFormatter
-from matplotlib import font_manager as fm, rcParams
-
-# --- Typography & rendering: register nicer sans fonts if present and bump DPI
-for path in [
-    "./fonts/Inter-Regular.ttf", "./fonts/Inter-Variable.ttf",
-    "/usr/share/fonts/truetype/inter/Inter-Regular.ttf",
-    "/System/Library/Fonts/SFNS.ttf"  # macOS SF fallback if available
-]:
-    try: fm.fontManager.addfont(path)
-    except Exception: pass
+from matplotlib import rcParams
 
 rcParams.update({
-    "figure.dpi": 260,              # crisp on Streamlit canvas
-    "savefig.dpi": 260,
+    "figure.dpi": 260,
     "text.antialiased": True,
     "font.family": "sans-serif",
     "font.sans-serif": ["Inter","SF Pro Text","Segoe UI","Roboto","Helvetica Neue","Arial","DejaVu Sans"],
-    "axes.titleweight": "bold",
 })
 
 st.markdown("---")
@@ -416,16 +405,11 @@ with st.expander("Leaderboard settings", expanded=False):
     metric_pick   = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
     top_n         = st.slider("Show top N", 5, 40, 20, 5)
 
-# ----- data (actual values only)
+# Data (actual values only)
 val_col = metric_pick
-plot_df = (
-    df_f[["Player","Team",val_col]]
-    .dropna(subset=[val_col])
-    .copy()
-)
+plot_df = df_f[["Player","Team",val_col]].dropna(subset=[val_col]).copy()
 plot_df = plot_df.sort_values(val_col, ascending=False).head(int(top_n)).reset_index(drop=True)
 
-# ----- label formatter: "M.Grimes, Coventry"
 def label_name_team(player, team):
     tokens = re.split(r"\s+", str(player).strip())
     if tokens:
@@ -439,56 +423,60 @@ def label_name_team(player, team):
 y_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
 vals = plot_df[val_col].astype(float).values
 
-# ----- palette: Red → Gold → Green (green = best)
-cmap = LinearSegmentedColormap.from_list("rgg_div", ["#d62728", "#ffbf00", "#2ca02c"])
-mid  = float(np.median(vals)) if len(vals) else 0.0
-norm = TwoSlopeNorm(vmin=float(vals.min()), vcenter=mid, vmax=float(vals.max()))
+# Dark blue -> light blue (darker = better)
+cmap = LinearSegmentedColormap.from_list(
+    "dark_to_light_blue", ["#0a2a66", "#1e60d4", "#6aa6ff", "#cfe8ff"]
+)
+norm   = Normalize(vmin=float(vals.min()), vmax=float(vals.max()))
 colors = [cmap(norm(v)) for v in vals]
 
-# ----- figure
+# Figure
 fig, ax = plt.subplots(figsize=(11.2, 6.0))
-fig.patch.set_facecolor("#f5f6f8")  # light page
-ax.set_facecolor("white")
+page_grey = "#f3f4f6"
+fig.patch.set_facecolor(page_grey)
+ax.set_facecolor(page_grey)  # chart light grey too
 
-# Title (no subtitle)
-fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, color="#111827", y=0.98)
+# Bold title, no subtitle
+fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, fontweight="bold",
+             color="#111827", y=0.98)
 plt.subplots_adjust(top=0.90, left=0.25, right=0.95, bottom=0.12)
 
-# Bars (no edges to avoid fuzz)
+# Bars (no edges)
 bars = ax.barh(range(len(vals)), vals, color=colors, edgecolor="none", zorder=2)
 
-# Axes & grid
+# Axes & grid (light)
 ax.invert_yaxis()
 ax.set_yticks(range(len(vals)))
 ax.set_yticklabels(y_labels, fontsize=10.5, color="#111827")
 ax.set_ylabel("")
 ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=10.5)
-ax.grid(axis="x", color="#e8eaee", linewidth=0.8, zorder=1)   # light gridlines
+ax.grid(axis="x", color="#e6e8eb", linewidth=0.8, zorder=1)
 
-# Remove left ticks/line completely
+# Remove left ticks/line; keep bottom subtle
 ax.spines["left"].set_visible(False)
 ax.tick_params(axis="y", length=0)
-# Keep bottom spine subtle, hide others
-ax.spines["bottom"].set_color("#d3d7dd")
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
+ax.spines["bottom"].set_color("#d3d7dd")
+ax.tick_params(axis="x", labelsize=9, colors="#374151")
 
-# Neat tick formatting & limits
+# Tick formatting & limits
 def fmt(x, _): return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
 ax.xaxis.set_major_formatter(FuncFormatter(fmt))
 xmax = float(vals.max()) if len(vals) else 1.0
 ax.set_xlim(0, xmax * 1.06)
 
-# Value labels: small plain black, at bar’s right edge (no background)
+# Value labels on right edge — 1pt smaller than before
 pad = (ax.get_xlim()[1]) * 0.006
 for rect, v in zip(bars, vals):
     ax.text(rect.get_width() + pad,
             rect.get_y() + rect.get_height()/2,
             fmt(v, None),
-            va="center", ha="left", fontsize=9.2, color="#111827")
+            va="center", ha="left", fontsize=8.2, color="#111827")
 
 st.pyplot(fig, use_container_width=True)
-# ----------------- END METRIC LEADERBOARD (studio-crisp) -----------------
+# ----------------- END -----------------
+
 
 
 
