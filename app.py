@@ -883,21 +883,22 @@ if player_row.empty:
     st.info("Pick a player above to render the snapshot.")
 else:
     # ---------- helpers ----------
-    def div_color(v: float) -> str:
-        """Red → Gold → Green diverging for 0..100."""
+    def div_color(v: float):
+        """Red → Gold → Green diverging for 0..100. Returns an RGB tuple for Matplotlib."""
         if pd.isna(v):
-            return "#9CA3AF"
+            # neutral light gray
+            return (0.61, 0.64, 0.67)
         v = float(v)
         if v <= 50:
             # 0..50: red(#C81E1E) → gold(#EAB308)
             t = v / 50.0
-            c1, c2 = np.array([200,30,30]), np.array([234,179,8])
+            c1, c2 = np.array([200, 30, 30]), np.array([234, 179, 8])
         else:
             # 50..100: gold → green(#22C55E)
             t = (v - 50.0) / 50.0
-            c1, c2 = np.array([234,179,8]), np.array([34,197,94])
-        r,g,b = (c1 + (c2 - c1) * t).astype(int)
-        return f"rgb({r},{g},{b})"
+            c1, c2 = np.array([234, 179, 8]), np.array([34, 197, 94])
+        r, g, b = (c1 + (c2 - c1) * t).astype(float) / 255.0
+        return (r, g, b)
 
     def tag_row(items, bg, text="#0B1220"):
         if not items:
