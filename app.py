@@ -385,105 +385,111 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (ranked, 9+/10) -----------------
+# ----------------- METRIC LEADERBOARD (9/10 polished) -----------------
 import re, numpy as np, matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.ticker import FuncFormatter
 from matplotlib import rcParams, font_manager as fm
 
-# Crisp rendering + clean sans
+# --- Rendering crispness & font setup
 rcParams.update({
-    "figure.dpi": 300, "savefig.dpi": 300, "text.antialiased": True,
+    "figure.dpi": 300,
+    "savefig.dpi": 300,
+    "text.antialiased": True,
     "font.family": "sans-serif",
-    "font.sans-serif": ["Inter","Roboto","SF Pro Text","Segoe UI","Helvetica Neue","Arial","DejaVu Sans"],
+    "font.sans-serif": ["Inter","Roboto","SF Pro Text","Segoe UI","Helvetica Neue","Arial"],
 })
+
 for p in ["./fonts/Inter-Variable.ttf","./fonts/Inter-Regular.ttf"]:
     try: fm.fontManager.addfont(p)
     except: pass
 
 st.markdown("---")
 
-# Minimal controls (actual values only)
 with st.expander("Leaderboard settings", expanded=False):
     default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
     metric_pick   = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
     top_n         = st.slider("Top N", 5, 40, 20, 5)
 
-# ---- Data
+# --- Data
 val_col = metric_pick
 plot_df = df_f[["Player","Team",val_col]].dropna(subset=[val_col]).copy()
 plot_df = plot_df.sort_values(val_col, ascending=False).head(int(top_n)).reset_index(drop=True)
 
-# "M.Grimes, Coventry"
+# Label formatter "M.Grimes, Coventry"
 def label_name_team(player, team):
-    t = re.split(r"\s+", str(player).strip())
-    if t:
-        initial = t[0][:1]
-        last = re.sub(r"[^\w\-’']", "", t[-1])
+    tokens = re.split(r"\s+", str(player).strip())
+    if tokens:
+        initial = tokens[0][0]
+        last = re.sub(r"[^\w\-’']", "", tokens[-1])
         name = f"{initial}.{last}"
     else:
         name = str(player)
     return f"{name}, {team}"
 
-base_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
-ranked_labels = [f"{i+1:>2}.  {lbl}" for i, lbl in enumerate(base_labels)]
+y_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
 vals = plot_df[val_col].astype(float).values
 
-# ---- Palette: dark navy → medium blue → pale blue (subtle but readable)
+# --- Medium→Dark Blue palette (subtle; bottom still medium blue)
+# higher = darker, lower = medium (not pale)
 cmap = LinearSegmentedColormap.from_list(
-    "navy_to_pale",
-    ["#0a2342", "#2a5db0", "#6ea3ff", "#dfeeff"]
+    "medium_to_dark_blue",
+    ["#5F8EF1",  # medium blue (min)
+     "#2F63D4",  # mid blue
+     "#0A2A66"]  # deep navy (max)
 )
 norm   = Normalize(vmin=float(vals.min()), vmax=float(vals.max()))
 colors = [cmap(norm(v)) for v in vals]
 
-# ---- Figure
-fig, ax = plt.subplots(figsize=(11.6, 6.2))
-bg = "#f3f4f6"
-fig.patch.set_facecolor(bg)
-ax.set_facecolor(bg)
+# --- Figure
+fig, ax = plt.subplots(figsize=(11.5, 6.2))
+page_grey = "#f3f4f6"
+fig.patch.set_facecolor(page_grey)
+ax.set_facecolor(page_grey)
 
-# Bold title
-fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, fontweight="bold",
-             color="#111827", y=0.985)
-plt.subplots_adjust(top=0.90, left=0.29, right=0.97, bottom=0.15)
+# Title
+fig.suptitle(f"Top {len(plot_df)} – {metric_pick}",
+             fontsize=16, fontweight="bold", color="#111827", y=0.985)
+plt.subplots_adjust(top=0.90, left=0.27, right=0.965, bottom=0.14)
 
-# Bars (no edges)
+# Bars
 bars = ax.barh(range(len(vals)), vals, color=colors, edgecolor="none", zorder=2)
 
 # Axes & labels
 ax.invert_yaxis()
 ax.set_yticks(range(len(vals)))
-# Slightly darker / heavier for player labels to lead the eye
-ax.set_yticklabels(ranked_labels, fontsize=10.6, color="#0b1220", fontweight="medium")
+ax.set_yticklabels(y_labels, fontsize=10.5, color="#0f172a")
 ax.set_ylabel("")
-ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=9.5)  # 1 smaller
+ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=9.5)  # smaller label
 
-# Very light grid, minimal spines
-ax.grid(axis="x", color="#e9ebef", linewidth=0.7, zorder=1)
+# Gridlines
+ax.grid(axis="x", color="#e7e9ec", linewidth=0.7, zorder=1)
+
+# Spines cleanup
 ax.spines["left"].set_visible(False)
+ax.tick_params(axis="y", length=0)
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 ax.spines["bottom"].set_color("#d1d5db")
-ax.tick_params(axis="y", length=0)
 ax.tick_params(axis="x", labelsize=9, colors="#374151")
 
-# Ticks & limits
+# X ticks
 def fmt(x, _): return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
 ax.xaxis.set_major_formatter(FuncFormatter(fmt))
 xmax = float(vals.max()) if len(vals) else 1.0
-ax.set_xlim(0, xmax * 1.12)  # extra breathing room for numbers
+ax.set_xlim(0, xmax * 1.1)
 
-# Right-edge value labels (plain, slightly lighter than name text)
-pad = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.015
+# Value labels: small, plain, aligned neatly
+pad = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.012
 for rect, v in zip(bars, vals):
     ax.text(rect.get_width() + pad,
             rect.get_y() + rect.get_height()/2,
             fmt(v, None),
-            va="center", ha="left", fontsize=8.4, color="#334155")
+            va="center", ha="left", fontsize=8.5, color="#111827")
 
 st.pyplot(fig, use_container_width=True)
 # ----------------- END -----------------
+
 
 
 
