@@ -871,59 +871,86 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ----------------------------------------------------------------------
-# (E3) One-Pager — Attacking • Possession on top, Defensive bottom-left (gap bottom-right)
-# ----------------------------------------------------------------------
-import io, numpy as np, matplotlib.pyplot as plt, matplotlib.gridspec as gridspec
+# ======================================================================
+# NEW VIEW — Header banner + (Attacking | Possession) + Defensive (gap)
+# ======================================================================
+import io, math
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 
 st.markdown("---")
-st.header("🖨️ One-Pager — Template (gap bottom-right)")
+st.header("🎬 Player Snapshot — Attacking • Possession • Defensive")
 
-with st.expander("One-pager settings", expanded=False):
-    show_target = st.checkbox("Show 50th percentile target line", True)
-    round_vals  = st.selectbox("Round actual values to", [0, 1, 2], index=1)
+with st.expander("Snapshot settings", expanded=False):
+    show_target = st.checkbox("Show 50th percentile guide", True)
+    round_vals  = st.selectbox("Round actual values to", [0,1,2], index=1)
 
-if player_row.empty:
-    st.info("Pick a player above."); st.stop()
+# ---------- guards ----------
+if 'player_row' not in globals() or player_row.empty:
+    st.info("Pick a player in the section above."); st.stop()
 
 ply = player_row.iloc[0]
 pool_df = build_pool_df()
 if pool_df.empty:
-    st.warning("Comparison pool empty."); st.stop()
+    st.warning("Comparison pool is empty. Add at least one league."); st.stop()
 
-def series_percentile(series, val):
+# ---------- percentiles vs current pool ----------
+def pct_in_pool(series, val):
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty or pd.isna(val): return np.nan
-    rank = (s < float(val)).mean()*100.0
-    eq   = (s == float(val)).mean()*100.0
-    return min(100.0, rank + 0.5*eq)
+    lt = (s < float(val)).mean()*100.0
+    eq = (s == float(val)).mean()*100.0
+    return min(100.0, lt + 0.5*eq)
 
 feat_cols = [f for f in FEATURES if f in pool_df.columns]
 for f in feat_cols: pool_df[f] = pd.to_numeric(pool_df[f], errors="coerce")
-pct = {f: series_percentile(pool_df[f], ply.get(f)) for f in feat_cols}
+PCT = {f: pct_in_pool(pool_df[f], ply.get(f)) for f in feat_cols}
 
-# Groups (fixed order)
-G_ATTACK = [
+# ---------- role score (best) ----------
+def best_role_score(row):
+    # use your table function if present
+    if 'table_style_role_scores_from_row' in globals():
+        rs = table_style_role_scores_from_row(row)
+    else:
+        # minimal fallback: unweighted mean of role metric percentiles
+        rs = {}
+        for role, rd in ROLES.items():
+            vals = []
+            for m in rd["metrics"].keys():
+                pc = row.get(f"{m} Percentile", np.nan)
+                if pd.notna(pc): vals.append(float(pc))
+            rs[role] = float(np.mean(vals)) if vals else np.nan
+    rs = {k:v for k,v in rs.items() if pd.notna(v)}
+    if not rs: return "—", np.nan
+    br, bv = max(rs.items(), key=lambda kv: kv[1])
+    return br, bv
+
+best_role, best_score = best_role_score(player_row.iloc[0])
+
+# ---------- groups (fixed order; not sorted) ----------
+ATTACK = [
     "Touches in box per 90","Offensive duels per 90","Accelerations per 90","Dribbles per 90",
     "Progressive runs per 90","Deep completions per 90","xG per 90","Shots per 90",
     "Offensive duels won, %","Successful dribbles, %","Shots on target, %","Non-penalty goals per 90",
 ]
-G_POSSESS = [
+POSSES = [
     "Accurate progressive passes, %","Passes to penalty area per 90","Key passes per 90","xA per 90",
     "Long passes per 90","Passes to final third per 90","Accurate long passes, %","Forward passes per 90",
     "Progressive passes per 90","Passes per 90","Smart passes per 90",
 ]
-G_DEF = [
+DEFENS = [
     "PAdj Interceptions","Defensive duels per 90","Defensive duels won, %",
     "Aerial duels per 90","Aerial duels won, %","Successful defensive actions per 90","Shots blocked per 90"
 ]
-G_ATTACK  = [m for m in G_ATTACK  if m in feat_cols]
-G_POSSESS = [m for m in G_POSSESS if m in feat_cols]
-G_DEF     = [m for m in G_DEF     if m in feat_cols]
+ATTACK  = [m for m in ATTACK  if m in feat_cols]
+POSSES  = [m for m in POSSES  if m in feat_cols]
+DEFENS  = [m for m in DEFENS  if m in feat_cols]
 
-def short(s):
+# ---------- label shortener ----------
+def short(s: str) -> str:
     s = s.replace(" per 90","/90").replace("per 90","/90")
     s = s.replace("Non-penalty goals","NP Goals").replace("Shots on target, %","SoT %")
     s = s.replace("Accurate ","Acc ").replace("Passes to penalty area","Passes to Pen Area")
@@ -933,86 +960,120 @@ def short(s):
     s = s.replace("Accurate passes to final third, %","Acc to Final 3rd %")
     return s
 
-RAMP = LinearSegmentedColormap.from_list("brown_gold_green", ["#9a6b16","#f2c94c","#22c55e"])
+# ---------- colors & sizes ----------
+GREEN_RAMP = LinearSegmentedColormap.from_list("green_ramp", ["#a7f3d0","#34d399","#16a34a","#15803d"])
+HEADER_BG  = "#0f1115"   # near-black
+CARD_BG    = "#111217"
+PANEL_BG   = "#121418"
+TRACK_BG   = "#eaecef"
+PAGE_BG    = "#0b0c10"   # dark canvas like the template
+TEXT_LG    = "#e5e7eb"
+TEXT_MD    = "#cbd5e1"
+TEXT_SM    = "#94a3b8"
 
-# --- Layout: 3 columns x 2 rows ---
-# col0 = profile; col1 & col2 = charts. Bottom-right (row1,col2) intentionally left empty.
-W, H, DPI = 13.6, 7.4, 260
+# ---------- figure layout (banner + two top panels + bottom-left panel) ----------
+W, H, DPI = 13.8, 8.0, 260     # widescreen like your reference
 fig = plt.figure(figsize=(W, H), dpi=DPI, layout="constrained")
-fig.set_constrained_layout_pads(w_pad=0.28, h_pad=0.28)
-fig.patch.set_facecolor("#f3f4f6")
-gs = gridspec.GridSpec(nrows=2, ncols=3, figure=fig,
-                       width_ratios=[1.05, 1, 1], height_ratios=[1, 1])
+fig.set_constrained_layout_pads(w_pad=0.3, h_pad=0.32)
+fig.patch.set_facecolor(PAGE_BG)
 
-# ---- Left profile (spans both rows) ----
-axL = fig.add_subplot(gs[:, 0]); axL.set_xlim(0,1); axL.set_ylim(0,1); axL.axis("off")
-axL.add_artist(Rectangle((0.03,0.03), 0.94, 0.94, facecolor="#262626", edgecolor="none"))
+gs = gridspec.GridSpec(nrows=3, ncols=2, figure=fig,
+                       height_ratios=[0.62, 1.0, 1.0], width_ratios=[1, 1])
 
-def badge(x,y,t,fc): axL.text(x,y,t,transform=axL.transAxes,fontsize=8.3,color="#0b1220",
-                              bbox=dict(boxstyle="round,pad=0.25",fc=fc,ec="none"))
-axL.text(0.08,0.90,f"{ply.get('Player','')}",fontsize=15.5,fontweight="bold",color="#f3f4f3",transform=axL.transAxes)
-axL.text(0.08,0.855,f"{ply.get('Team','?')} • {ply.get('League','?')}",fontsize=10.2,color="#d1d5db",transform=axL.transAxes)
-badge(0.08,0.80,f"Minutes {int(ply.get('Minutes played',0)):,}","#22c55e")
-badge(0.36,0.80,f"Age {int(ply.get('Age',0))}","#22c55e")
-badge(0.56,0.80,f"Value €{float(ply.get('Market value',0)):.0f}","#38bdf8")
+# ---------- (1) header banner (spans 2 columns) ----------
+axH = fig.add_subplot(gs[0, :])
+axH.set_xlim(0,1); axH.set_ylim(0,1); axH.axis("off")
+axH.add_artist(Rectangle((0,0), 1, 1, facecolor=HEADER_BG, edgecolor="none"))
 
-def chip_list(y_start, title, items, fc):
-    axL.text(0.08,y_start,title,fontsize=9.2,color="#cfcfcf",transform=axL.transAxes)
-    x,y = 0.08, y_start-0.055
+# name + best score pill
+name = str(ply.get("Player",""))
+axH.text(0.035, 0.76, name, color=TEXT_LG, fontsize=24, fontweight="bold", ha="left", va="center")
+if pd.notna(best_score):
+    axH.text(0.035 + min(0.42, 0.015*len(name)), 0.76,
+             f"{int(round(best_score))}", color="#04130a", fontsize=12, fontweight="bold", va="center",
+             bbox=dict(boxstyle="round,pad=0.35", fc="#22c55e", ec="none"))
+
+# metadata line
+mins  = int(ply.get("Minutes played",0))
+n90s  = mins/90.0
+goals = int(ply.get("Goals", 0)) if pd.notna(ply.get("Goals")) else 0
+assst = int(ply.get("Assists", 0)) if pd.notna(ply.get("Assists")) else 0
+xgval = float(ply.get("xG per 90", np.nan)) if "xG per 90" in ply.index else np.nan
+
+meta = [
+    f"{ply.get('Position','—')}",
+    f"Age {int(ply.get('Age',0))}",
+    f"{ply.get('League','—')}",
+    f"Mins {mins:,}",
+    f"90’s {n90s:.1f}",
+    f"Goals {goals}",
+    f"xG {xgval:.2f}" if not np.isnan(xgval) else None,
+    f"Assists {assst}",
+]
+meta = [m for m in meta if m]
+meta_line = "  •  ".join(meta)
+axH.text(0.035, 0.58, meta_line, color=TEXT_MD, fontsize=11, ha="left")
+
+# chips row (bright)
+def chip_row(y, label, items, color):
+    axH.text(0.035, y, label, color=TEXT_SM, fontsize=10, ha="left", va="center")
+    x = 0.12
     items = items or ["—"]
     for t in items[:12]:
-        axL.text(x,y,t,transform=axL.transAxes,fontsize=8.2,color="#0b1220",
-                 bbox=dict(boxstyle="round,pad=0.25",fc=fc,ec="none"))
-        x += 0.30
-        if x>0.80: x=0.08; y-=0.055
+        axH.text(x, y, t, color="#0b1220", fontsize=9, va="center",
+                 bbox=dict(boxstyle="round,pad=0.28", fc=color, ec="none"))
+        x += 0.13
+        if x > 0.95: break
 
-chip_list(0.73,"STYLE",styles,"#93c5fd")
-chip_list(0.53,"STRENGTHS",strengths,"#6ee7b7")
-chip_list(0.33,"WEAKNESSES",weaknesses,"#fca5a5")
+chip_row(0.40, "Strengths", strengths, "#22c55e")
+chip_row(0.28, "Weaknesses", weaknesses, "#f87171")
+chip_row(0.16, "Style",      styles,     "#60a5fa")
 
-# ---- Bar panel helper ----
-def panel(ax, title, metrics):
-    ax.set_xlim(-18, 115); ax.set_ylim(-0.5, len(metrics)-0.5); ax.axis("off")
-    ax.add_artist(Rectangle((-18,-0.5), 133, len(metrics), facecolor="#ffffff", edgecolor="#e5e7eb", lw=0.8))
-    ax.text(-16, len(metrics)-0.1, title, fontsize=12.2, fontweight="bold", color="#111827", va="top")
-    for x in range(0,101,10): ax.plot([x,x],[-0.5,len(metrics)-0.5],color="#e6e8ec",lw=0.6,zorder=1)
-    if show_target: ax.plot([50,50],[-0.5,len(metrics)-0.5],color="#7b7f86",ls="--",lw=1.0,zorder=2)
-    h=0.46; step=0.85; y0=len(metrics)-1
-    for i,m in enumerate(metrics):
-        y=y0-i*step
-        ax.barh(y,100,height=h,left=0,color="#eeeeee",edgecolor="none",zorder=1)
-        p = pct.get(m, np.nan)
-        if not np.isnan(p): ax.barh(y,p,height=h,left=0,color=RAMP(p/100),edgecolor="none",zorder=3)
-        ax.text(-19,y,short(m),ha="right",va="center",fontsize=8.5,color="#111827")
-        v = ply.get(m); txt = f"{v:.{round_vals}f}" if isinstance(v,(int,float,np.floating)) else (str(v) if v is not None else "")
-        ax.text(2.0,y,txt,ha="left",va="center",fontsize=8.0,color="#111827",zorder=4,clip_on=True)
+# ---------- bar panel helper ----------
+def draw_panel(ax, title, metrics):
+    ax.set_xlim(-20, 112); ax.set_ylim(-0.5, len(metrics)-0.5); ax.axis("off")
+    # panel background
+    ax.add_artist(Rectangle((-20,-0.5), 132, len(metrics), facecolor=PANEL_BG, edgecolor="none", zorder=0))
+    # title
+    ax.text(-18, len(metrics)-0.08, title, color=TEXT_LG, fontsize=13, fontweight="bold", va="top")
+    # vertical grid + optional 50th
+    for x in range(0, 101, 10):
+        ax.plot([x,x],[-0.5,len(metrics)-0.5], color="#2a2e36", lw=0.7, zorder=1)
+    if show_target:
+        ax.plot([50,50],[-0.5,len(metrics)-0.5], color="#6b7280", ls="--", lw=1.0, zorder=2)
 
-# ---- Top row: Attacking (col1), Possession (col2) ----
-axAtt  = fig.add_subplot(gs[0,1])
-axPoss = fig.add_subplot(gs[0,2])
-panel(axAtt,  "Attacking",  G_ATTACK)
-panel(axPoss, "Possession", G_POSSESS)
+    h = 0.50; step = 0.95; y0 = len(metrics)-1
+    for i, m in enumerate(metrics):
+        y = y0 - i*step
+        # track
+        ax.barh(y, 100, height=h, left=0, color=TRACK_BG, edgecolor="none", zorder=1)
+        # fill
+        p = PCT.get(m, np.nan)
+        if not np.isnan(p):
+            ax.barh(y, p, height=h, left=0, color=GREEN_RAMP(p/100.0), edgecolor="none", zorder=3)
+        # small left label
+        ax.text(-21, y, short(m), ha="right", va="center", fontsize=8.8, color=TEXT_MD)
+        # value inside left of bar
+        v = ply.get(m)
+        sval = f"{v:.{round_vals}f}" if isinstance(v,(int,float,np.floating)) else (str(v) if v is not None else "")
+        ax.text(2, y, sval, ha="left", va="center", fontsize=8.2, color="#0b0c10", zorder=4)
 
-# ---- Bottom row: Defensive (col1) ; Gap (col2) intentionally empty ----
-axDef  = fig.add_subplot(gs[1,1])
-panel(axDef,  "Defensive",  G_DEF)
-# gs[1,2] left blank on purpose — this creates the bottom-right gap
+# ---------- (2) top row panels ----------
+axA = fig.add_subplot(gs[1,0]); draw_panel(axA, "Attacking", ATTACK)
+axP = fig.add_subplot(gs[1,1]); draw_panel(axP, "Possession", POSSES)
 
-# Header
-fig.text(0.02,0.985,"Advanced Central Midfielder — Compact Percentile Profile",
-         fontsize=13,fontweight="bold",color="#111827")
-fig.text(0.02,0.965,f"{ply.get('Player','')} • {ply.get('Team','?')} • {ply.get('League','?')}",
-         fontsize=9.2,color="#6b7280")
+# ---------- (3) bottom-left defensive (gap bottom-right) ----------
+axD = fig.add_subplot(gs[2,0]); draw_panel(axD, "Defensive", DEFENS)
+# bottom-right left intentionally empty
 
+# ---------- render + downloads ----------
 st.pyplot(fig, use_container_width=True)
 
-# Downloads
 buf_png, buf_pdf = io.BytesIO(), io.BytesIO()
 fig.savefig(buf_png, format="png", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
 fig.savefig(buf_pdf, format="pdf", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
-st.download_button("⬇️ PNG", data=buf_png.getvalue(), file_name="one_pager_template_gap.png", mime="image/png")
-st.download_button("⬇️ PDF", data=buf_pdf.getvalue(), file_name="one_pager_template_gap.pdf", mime="application/pdf")
-
+st.download_button("⬇️ PNG snapshot", data=buf_png.getvalue(), file_name="snapshot_att_poss_def.png", mime="image/png")
+st.download_button("⬇️ PDF snapshot", data=buf_pdf.getvalue(), file_name="snapshot_att_poss_def.pdf", mime="application/pdf")
 
 
 
