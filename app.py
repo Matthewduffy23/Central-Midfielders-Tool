@@ -966,6 +966,9 @@ else:
     xg    = float(ply.get('xG per 90', np.nan)) if pd.notna(ply.get('xG per 90')) else np.nan
     assists = int(ply.get('Assists', np.nan)) if pd.notna(ply.get('Assists')) else 0
 
+    # format xg safely
+    xg_val = f"{xg:.2f}" if not np.isnan(xg) else "—"
+
     # top 5 role numbers
     top5 = sorted(role_scores.items(), key=lambda kv: -kv[1])[:5]
 
@@ -973,7 +976,7 @@ else:
     score_html = "".join(
         f"<span class='badge' style='color:{div_color(v)}'>{int(round(v))}</span>" for _,v in top5
     )
-    meta_line = f"{pos} — {team} — {league} — Age {age if age is not None else '—'} — Minutes {mins if mins is not None else '—'} — Matches {matches if matches is not None else '—'} — Goals {goals} — xG/90 {xg:.2f if not np.isnan(xg) else '—'} — Assists {assists}"
+    meta_line = f"{pos} — {team} — {league} — Age {age if age is not None else '—'} — Minutes {mins if mins is not None else '—'} — Matches {matches if matches is not None else '—'} — Goals {goals} — xG/90 {xg_val} — Assists {assists}"
 
     st.markdown(
         f"""
