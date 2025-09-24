@@ -871,163 +871,40 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ---------------------------- (E) DARK SNAPSHOT — player-at-a-glance ----------------------------
-# Reuses: player_row, player_name, role_scores, strengths, weaknesses, styles, pct_extra, df_f
-# Requires: numpy as np, matplotlib.pyplot as plt already imported earlier
+# ============================ (E) ONE-PAGER — DARK REPORT ============================
+# Requires: player_row, player_name, role_scores, strengths, weaknesses, styles, pct_extra
+# Uses: numpy as np, matplotlib.pyplot as plt, streamlit as st
+
+from io import BytesIO
+import matplotlib.patches as mpatches
 
 st.markdown("---")
-st.header("🧠 Player Snapshot — dark")
-from html import escape
+st.header("🖨️ One-pager (dark)")
 
 if player_row.empty:
-    st.info("Pick a player above to render the snapshot.")
+    st.info("Pick a player above.")
 else:
     # ---------- helpers ----------
+    def safe_num(x, default=0):
+        try:
+            if pd.isna(x): return default
+            return float(x)
+        except Exception:
+            return default
+
     def div_color(v: float):
-        """Red → Gold → Green diverging for 0..100. Returns RGB tuple for Matplotlib."""
-        if pd.isna(v):
-            return (0.61, 0.64, 0.67)  # neutral grey
+        """0..100 → red→gold→green (matplotlib RGB tuple)."""
+        if pd.isna(v): return (0.61, 0.64, 0.67)
         v = float(v)
         if v <= 50:
             t = v / 50.0
-            c1, c2 = np.array([200, 30, 30]), np.array([234, 179, 8])   # red -> gold
+            c1, c2 = np.array([200,30,30]), np.array([234,179,8])
         else:
-            t = (v - 50.0) / 50.0
-            c1, c2 = np.array([234, 179, 8]), np.array([34, 197, 94])   # gold -> green
-        r, g, b = (c1 + (c2 - c1) * t) / 255.0
+            t = (v-50.0)/50.0
+            c1, c2 = np.array([234,179,8]), np.array([34,197,94])
+        r,g,b = (c1 + (c2-c1)*t)/255.0
         return (float(r), float(g), float(b))
 
-    def tag_row(items, bg, text="#0B1220"):
-        if not items:
-            return ""
-        chips = "".join(
-            f"<span class='chip' style='background:{bg};color:{text}'>{escape(str(x))}</span>"
-            for x in items[:20]
-        )
-        return f"<div class='chip-row'>{chips}</div>"
-
-    def draw_bar_panel(title, metric_pairs):
-        # metric_pairs: list[(label, percentile [0..100])]
-        labels = [m for m, _ in metric_pairs]
-        vals = [float(np.nan_to_num(v, nan=0.0)) for _, v in metric_pairs]
-        y = np.arange(len(labels))[::-1]
-
-        fig, ax = plt.subplots(figsize=(6.2, 6.0), dpi=220)
-        # dark bg
-        fig.patch.set_facecolor('#0B0F19')
-        ax.set_facecolor('#111827')
-
-        # bars (uniform height/width)
-        ax.barh(y, vals, height=0.75, color=[div_color(v) for v in vals], edgecolor='none', zorder=2)
-
-        # grid / frame
-        ax.grid(axis='x', color='#1F2937', linewidth=1.1, zorder=1)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        ax.set_xlim(0, 100)
-        ax.set_yticks(y)
-        ax.set_yticklabels(labels, color='#CBD5E1', fontsize=10, fontweight='bold')
-        ax.tick_params(axis='x', colors='#94A3B8')
-
-        # value labels
-        for yi, v in zip(y, vals):
-            ax.text(min(v + 1.2, 100), yi, f"{int(round(v))}",
-                    va='center', ha='left', color='#E5E7EB', fontsize=9, weight='bold')
-
-        # title
-        ax.set_xlabel(""); ax.set_ylabel("")
-        fig.text(0.02, 0.985, title, color='#F8FAFC', fontsize=14, fontweight='bold', va='top')
-        st.pyplot(fig, use_container_width=True)
-
-    # ---------- CSS ----------
-    st.markdown(
-        """
-        <style>
-        .darkcard {background:#0B0F19; padding:18px 18px 14px; border-radius:14px; border:1px solid #1F2937;}
-        .meta    {color:#93C5FD; font-size:13px; margin-top:4px;}
-        .chip-row{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 2px 0;}
-        .chip{padding:4px 8px; border-radius:999px; font-size:12px; font-weight:600;}
-        .role-chip{padding:6px 10px; border-radius:8px; font-size:13px; font-weight:700; background:#E5E7EB; color:#0B1220; display:inline-flex; align-items:center; gap:8px;}
-        .role-num{font-variant-numeric: tabular-nums; font-weight:800;}
-        .role-stack{display:flex; flex-wrap:wrap; gap:8px;}
-        .topline{display:flex; align-items:baseline; justify-content:space-between; gap:12px;}
-        .title {color:#F8FAFC; font-weight:900; font-size:22px;}
-        .score-badges{display:flex; gap:12px;}
-        .badge{font-variant-numeric: tabular-nums; font-weight:900;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ---------- meta ----------
-    ply = player_row.iloc[0]
-    team   = str(ply.get('Team', '?'))
-    league = str(ply.get('League', '?'))
-    pos    = str(ply.get('Position', '?'))
-    age    = int(ply['Age']) if pd.notna(ply.get('Age')) else None
-    mins   = int(ply['Minutes played']) if pd.notna(ply.get('Minutes played')) else None
-    matches = int(ply.get('Matches played', np.nan)) if pd.notna(ply.get('Matches played')) else None
-    goals   = int(ply.get('Goals', np.nan)) if pd.notna(ply.get('Goals')) else 0
-    xg_val  = (f"{float(ply.get('xG per 90')):.2f}"
-               if pd.notna(ply.get('xG per 90')) else "—")
-    assists = int(ply.get('Assists', np.nan)) if pd.notna(ply.get('Assists')) else 0
-
-    # top 5 role numbers
-    safe_role_scores = role_scores if isinstance(role_scores, dict) else {}
-    top5 = sorted(safe_role_scores.items(), key=lambda kv: -kv[1])[:5]
-
-    # ---------- header card ----------
-    score_html = "".join(
-        f"<span class='badge' style='color:rgba({int(255*c[0])},{int(255*c[1])},{int(255*c[2])},1)'>{int(round(v))}</span>"
-        for _, v in top5
-        for c in [div_color(v)]
-    )
-    meta_line = (
-        f"{pos} — {team} — {league} — Age {age if age is not None else '—'} "
-        f"— Minutes {mins if mins is not None else '—'} "
-        f"— Matches {matches if matches is not None else '—'} "
-        f"— Goals {goals} — xG/90 {xg_val} — Assists {assists}"
-    )
-
-    st.markdown(
-        f"""
-        <div class='darkcard'>
-          <div class='topline'>
-            <div class='title'>{escape(str(player_name))} <span style='font-weight:600;color:#9CA3AF'>(Top Role Score)</span></div>
-            <div class='score-badges'>{score_html}</div>
-          </div>
-          <div class='meta'>{escape(meta_line)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ---------- chips rows (no labels) ----------
-    st.markdown(
-        f"<div class='darkcard'>"
-        f"{tag_row(strengths,  '#065F46', '#ECFDF5')}"
-        f"{tag_row(weaknesses,'#7F1D1D', '#FEE2E2')}"
-        f"{tag_row(styles,     '#1E3A8A', '#DBEAFE')}"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ---------- Best Roles list ----------
-    role_rows = []
-    for r, v in sorted(safe_role_scores.items(), key=lambda kv: -kv[1]):
-        col = div_color(v)
-        col_css = f"rgb({int(255*col[0])},{int(255*col[1])},{int(255*col[2])})"
-        role_rows.append(
-            f"<span class='role-chip'>{escape(r)} "
-            f"<span class='role-num' style='color:{col_css}'>{int(round(v))}</span></span>"
-        )
-    st.markdown(
-        f"<div class='darkcard'><div class='role-stack'>{''.join(role_rows)}</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    # ---------- Build 3 bar-panels ----------
-    # Percentile source: use pool-based pct_extra; fallback to per-league percentiles on row
     def pct_of(metric: str) -> float:
         if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
             return float(pct_extra[metric])
@@ -1036,6 +913,7 @@ else:
             return float(player_row[col].iloc[0])
         return np.nan
 
+    # metric groups (uniform bar counts/height)
     ATTACKING = [
         ('Non-Pen Goals', pct_of('Non-penalty goals per 90')),
         ('xG per 90',     pct_of('xG per 90')),
@@ -1046,7 +924,6 @@ else:
         ('Dribble %',     pct_of('Successful dribbles, %')),
         ('Accelerations', pct_of('Accelerations per 90')),
     ]
-
     DEFENSIVE = [
         ('Def Duels/90',   pct_of('Defensive duels per 90')),
         ('Def Duel %',     pct_of('Defensive duels won, %')),
@@ -1056,7 +933,6 @@ else:
         ('Shots blocked',  pct_of('Shots blocked per 90')),
         ('Succ. def acts', pct_of('Successful defensive actions per 90')),
     ]
-
     POSSESSION = [
         ('Passes/90',          pct_of('Passes per 90')),
         ('Pass %',             pct_of('Accurate passes, %')),
@@ -1075,15 +951,120 @@ else:
         ('xA per 90',          pct_of('xA per 90')),
     ]
 
-    # layout: Attacking & Defensive (left), Possession (right)
-    lc, rc = st.columns([1, 1])
-    with lc:
-        draw_bar_panel('Attacking', ATTACKING)
-        draw_bar_panel('Defensive', DEFENSIVE)
-    with rc:
-        draw_bar_panel('Possession', POSSESSION)
+    # ---------- figure layout ----------
+    # Canvas in pixels → figsize inches at 100 dpi
+    W, H = 1600, 1100
+    fig = plt.figure(figsize=(W/100, H/100), dpi=100)
+    fig.patch.set_facecolor("#0B0F19")
 
-# ---------------------------- END (E) DARK SNAPSHOT ----------------------------
+    # Quick access to player meta
+    ply = player_row.iloc[0]
+    team   = str(ply.get("Team", "?"))
+    league = str(ply.get("League", "?"))
+    pos    = str(ply.get("Position", "?"))
+    age    = int(ply["Age"]) if pd.notna(ply.get("Age")) else None
+    mins   = int(ply["Minutes played"]) if pd.notna(ply.get("Minutes played")) else None
+    matches = int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
+    goals   = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
+    xg90    = f"{safe_num(ply.get('xG per 90'), np.nan):.2f}" if pd.notna(ply.get("xG per 90")) else "—"
+    assists = int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
+
+    # ---------- header ----------
+    fig.text(0.035, 0.965, f"{player_name}", color="#F8FAFC", fontsize=26, fontweight="800", va="top")
+    meta = (
+        f"{pos} — {team} — {league} — "
+        f"Age {age if age is not None else '—'} — "
+        f"Minutes {mins if mins is not None else '—'} — "
+        f"Matches {matches if matches is not None else '—'} — "
+        f"Goals {goals} — xG/90 {xg90} — Assists {assists}"
+    )
+    fig.text(0.035, 0.935, meta, color="#93C5FD", fontsize=12)
+
+    # ---------- best roles chips ----------
+    roles_sorted = sorted((role_scores or {}).items(), key=lambda kv: -kv[1]) if isinstance(role_scores, dict) else []
+    chip_y = 0.90
+    x = 0.035
+    for r, v in roles_sorted[:10]:
+        txt = f"{r}  {int(round(v))}"
+        tw = 0.012 * len(txt)  # crude width estimate in figure fraction
+        tw = max(tw, 0.11)
+        # chip bg
+        box = mpatches.FancyBboxPatch((x, chip_y-0.028), tw, 0.04,
+                                      boxstyle="round,pad=0.007,rounding_size=0.02",
+                                      transform=fig.transFigure, facecolor="#E5E7EB",
+                                      edgecolor="none", zorder=1)
+        fig.patches.append(box)
+        # role text
+        fig.text(x+0.010, chip_y-0.009, r, fontsize=12.5, color="#0B1220", va="center", ha="left", zorder=2, fontweight="700")
+        # score colored
+        col = div_color(v); col_rgb = (int(255*col[0]), int(255*col[1]), int(255*col[2]))
+        fig.text(x+tw-0.03, chip_y-0.009, f"{int(round(v))}", fontsize=12.5,
+                 color=f"#{col_rgb[0]:02x}{col_rgb[1]:02x}{col_rgb[2]:02x}", va="center", ha="right", zorder=2, fontweight="800")
+        x += tw + 0.01
+        if x > 0.95:  # wrap if too long
+            x = 0.035
+            chip_y -= 0.055
+
+    # ---------- chips: strengths, weaknesses, style (2 rows max each) ----------
+    def draw_chip_row(items, y_top, bg, fg, max_rows=2):
+        if not items: return
+        x0 = 0.035; x = x0; y = y_top
+        for i, it in enumerate(items[:40]):
+            s = str(it)
+            w = max(0.010 * len(s) + 0.045, 0.10)
+            if x + w > 0.96:
+                max_rows -= 1
+                if max_rows <= 0: break
+                x = x0
+                y -= 0.055
+            box = mpatches.FancyBboxPatch((x, y-0.028), w, 0.04,
+                                          boxstyle="round,pad=0.007,rounding_size=0.02",
+                                          transform=fig.transFigure, facecolor=bg,
+                                          edgecolor="none", zorder=1)
+            fig.patches.append(box)
+            fig.text(x+0.012, y-0.009, s, fontsize=11, color=fg, va="center", ha="left", zorder=2, fontweight="700")
+            x += w + 0.01
+
+    draw_chip_row(strengths or [],  0.84, "#065F46", "#ECFDF5", max_rows=2)
+    draw_chip_row(weaknesses or [], 0.78, "#7F1D1D", "#FEE2E2", max_rows=2)
+    draw_chip_row(styles or [],     0.72, "#1E3A8A", "#DBEAFE", max_rows=2)
+
+    # ---------- bar panels ----------
+    def bar_panel(fig, left, bottom, width, height, title, pairs):
+        ax = fig.add_axes([left, bottom, width, height])
+        ax.set_facecolor("#111827")
+        labels = [m for m,_ in pairs]
+        vals = [float(np.nan_to_num(v, nan=0.0)) for _,v in pairs]
+        y = np.arange(len(labels))[::-1]
+        ax.barh(y, vals, height=0.72, color=[div_color(v) for v in vals], edgecolor="none", zorder=2)
+        ax.set_xlim(0, 100)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, color="#CBD5E1", fontsize=10, fontweight="bold")
+        ax.tick_params(axis="x", colors="#94A3B8")
+        ax.grid(axis="x", color="#1F2937", linewidth=1.1, zorder=1)
+        for sp in ax.spines.values(): sp.set_visible(False)
+        ax.set_xlabel(""); ax.set_ylabel("")
+        ax.set_title(title, color="#F8FAFC", fontsize=13.5, pad=6, fontweight="bold")
+        for yi, v in zip(y, vals):
+            ax.text(min(v+1.2, 100), yi, f"{int(round(v))}", va="center", ha="left",
+                    color="#E5E7EB", fontsize=9, fontweight="bold")
+
+    # Left column: Attacking (top), Defensive (bottom)
+    bar_panel(fig, left=0.035, bottom=0.39, width=0.455, height=0.24, title="Attacking", pairs=ATTACKING)
+    bar_panel(fig, left=0.035, bottom=0.12, width=0.455, height=0.24, title="Defensive", pairs=DEFENSIVE)
+    # Right column: Possession (taller)
+    bar_panel(fig, left=0.515, bottom=0.12, width=0.45,  height=0.51, title="Possession", pairs=POSSESSION)
+
+    # ---------- preview + download ----------
+    st.pyplot(fig, use_container_width=True)
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=160, bbox_inches="tight", facecolor=fig.get_facecolor())
+    st.download_button("⬇️ Download one-pager (PNG)",
+                       data=buf.getvalue(),
+                       file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
+                       mime="image/png")
+
+# ============================ END (E) ONE-PAGER ============================
 
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
