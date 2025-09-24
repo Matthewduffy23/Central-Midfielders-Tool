@@ -385,132 +385,98 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (clean v2) -----------------
+# ----------------- METRIC LEADERBOARD (spec) -----------------
 import re, numpy as np, matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FuncFormatter
+from matplotlib.colors import TwoSlopeNorm
 
 st.markdown("---")
 
-# ---- Controls
 with st.expander("Leaderboard settings", expanded=False):
     default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
-    metric_pick    = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
-    sort_mode      = st.radio("Order by", ["Actual value", "League percentile"], horizontal=True, index=0)
-    top_n          = st.slider("Show top N", 5, 40, 20, 5)
-    show_team      = st.checkbox("Show team & league in label", True)
-    compact_names  = st.checkbox("Compact player names", True)
-    show_values    = st.checkbox("Show value badges", True)
-    show_pct       = st.checkbox("Show percentile chips", True)
+    metric_pick   = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
+    top_n         = st.slider("Show top N", 5, 40, 20, 5)
 
-# ---- Data
+# ----- data (actual values only)
 val_col = metric_pick
-pct_col = f"{metric_pick} Percentile"
-
 plot_df = (
-    df_f[["Player","Team","League",val_col,pct_col]]
-    .dropna(subset=[val_col, pct_col])
+    df_f[["Player","Team",val_col]]
+    .dropna(subset=[val_col])
     .copy()
 )
+plot_df = plot_df.sort_values(val_col, ascending=False).head(int(top_n)).reset_index(drop=True)
 
-sort_key = pct_col if sort_mode == "League percentile" else val_col
-plot_df = plot_df.sort_values(sort_key, ascending=False).head(int(top_n)).reset_index(drop=True)
+# ----- label formatter: "M.Grimes, Coventry"
+def label_name_team(player, team):
+    # Take first initial + surname (last token), glue with dot and no space
+    tokens = re.split(r"\s+", str(player).strip())
+    if not tokens:
+        base = str(player)
+    else:
+        first = tokens[0]
+        last  = tokens[-1]
+        initial = first[0] if first else ""
+        # strip punctuation in last, keep accents
+        last = re.sub(r"[^\w\-’']", "", last)
+        base = f"{initial}.{last}"
+    return f"{base}, {team}"
 
-def make_label(r):
-    name = r["Player"]
-    if compact_names:
-        name = re.sub(r"^([A-Z])(\w+)\s+", r"\1. ", name)   # "John Smith" -> "J. Smith"
-    if not show_team:
-        return name
-    team = r["Team"] if len(str(r["Team"])) <= 18 else str(r["Team"])[:17] + "…"
-    return f"{name} — {team} ({r['League']})"
+y_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
 
-y_labels = plot_df.apply(make_label, axis=1)
+# ----- colors: Red → Gold → Green (green = best)
+# Tableau-like hues
+cmap = LinearSegmentedColormap.from_list("rgg_div", ["#d62728", "#ffbf00", "#2ca02c"])
+vals = plot_df[val_col].values.astype(float)
+mid  = float(np.median(vals)) if len(vals) else 0.0
+norm = TwoSlopeNorm(vmin=float(vals.min()), vcenter=mid, vmax=float(vals.max()))
+colors = [cmap(norm(v)) for v in vals]
 
-# Optional highlight
-highlight_ix = None
-if 'player_name' in globals() and isinstance(player_name, str):
-    hits = np.where(plot_df["Player"].values == player_name)[0]
-    highlight_ix = int(hits[0]) if len(hits) else None
-
-# ---- Colors (no traffic light)
-cmap = LinearSegmentedColormap.from_list("violet_teal",
-    ["#4c1d95", "#2a3f9d", "#2463eb", "#1fa3a8", "#10b981"])
-norm   = Normalize(vmin=0, vmax=100)
-colors = [cmap(norm(p)) for p in plot_df[pct_col].values]
-
-# ---- Figure
-fig, ax = plt.subplots(figsize=(11, 6.6), dpi=170)
-fig.patch.set_facecolor("#f8fafc")
+# ----- figure
+fig, ax = plt.subplots(figsize=(11, 6.2), dpi=170)
+fig.patch.set_facecolor("#f6f7f9")   # light grey page
 ax.set_facecolor("white")
 
-# Title (left-aligned, no overlap) + subtitle
-title = f"Top {len(plot_df)} • {metric_pick}"
-subtitle = f"Ordered by {'league percentile' if sort_key==pct_col else 'actual value'}. Filters applied."
-fig.text(0.06, 0.97, title, fontsize=16, fontweight="bold", color="#0f172a", va="top")
-fig.text(0.06, 0.94, subtitle, fontsize=10.5, color="#475569", va="top")
-plt.subplots_adjust(top=0.86, left=0.24, right=0.94, bottom=0.08)
+# title (no subtitle)
+fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, fontweight="bold", color="#111827", y=0.98)
+plt.subplots_adjust(top=0.90, left=0.24, right=0.94, bottom=0.10)
 
-# Alternating bands
-for i in range(len(plot_df)):
-    if i % 2 == 1:
-        ax.axhspan(i-0.5, i+0.5, color="#f4f6fb", zorder=0)
+# bars (no edge line)
+bars = ax.barh(range(len(plot_df)), vals, color=colors, edgecolor="none", zorder=2)
 
-# Bars
-x_vals = plot_df[val_col].values
-bars = ax.barh(range(len(plot_df)), x_vals, color=colors, edgecolor="#0f172a", linewidth=0.5, zorder=2)
-
-# Axes
+# axes + grid (light)
 ax.invert_yaxis()
 ax.set_yticks(range(len(plot_df)))
-ax.set_yticklabels([f"{i+1:>2}.  {lbl}" for i, lbl in enumerate(y_labels)], fontsize=9.5, color="#0f172a")
-ax.set_xlabel(val_col, color="#0f172a", fontweight="bold", labelpad=6)
+ax.set_yticklabels(y_labels, fontsize=10, color="#111827")
 ax.set_ylabel("")
-ax.grid(axis="x", color="#e5e7eb", linewidth=0.8, zorder=1)
-ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
-ax.spines["left"].set_color("#cbd5e1"); ax.spines["bottom"].set_color("#cbd5e1")
+ax.set_xlabel(val_col, color="#111827", fontweight="bold", labelpad=6)
+ax.grid(axis="x", color="#e6e8eb", linewidth=0.8, zorder=1)
+# remove left-edge lines/ticks
+ax.spines["left"].set_visible(False)
+ax.tick_params(axis="y", length=0)     # no tick marks
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.spines["bottom"].set_color("#d1d5db")
+ax.tick_params(axis="x", labelsize=9, colors="#374151")
 
-# Neat tick formatting + tight xlim
-def smart_fmt(x, _):
+# tidy x ticks and limits
+def fmt(x, _): 
     return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
-ax.xaxis.set_major_formatter(FuncFormatter(smart_fmt))
-xmax = float(np.nanmax(x_vals)) if len(x_vals) else 1.0
+ax.xaxis.set_major_formatter(FuncFormatter(fmt))
+xmax = float(vals.max()) if len(vals) else 1.0
 ax.set_xlim(0, xmax * 1.06)
 
-# Value badges (inside bar if space, else just outside)
-if show_values:
-    for rect, val in zip(bars, x_vals):
-        x = rect.get_width()
-        y = rect.get_y() + rect.get_height()/2
-        label = smart_fmt(val, None)
-        inside = x >= xmax * 0.14
-        ax.text(
-            x - (xmax * 0.007) if inside else x + (xmax * 0.007), y, label,
-            va="center", ha="right" if inside else "left",
-            fontsize=9.5, color="white" if inside else "#0f172a",
-            bbox=dict(boxstyle="round,pad=0.22",
-                      fc="#0f172a" if inside else "#eef2ff",
-                      ec="#0f172a" if inside else "#c7d2fe",
-                      lw=0.8, alpha=0.98)
-        )
-
-# Percentile chips (aligned gutter at far right, no overlap)
-if show_pct:
-    gutter_x = ax.get_xlim()[1] * 0.995
-    for i, p in enumerate(plot_df[pct_col].values):
-        chip = f"{int(round(p))}ᵗʰ pct"
-        ax.text(gutter_x, i, chip, va="center", ha="right", fontsize=9, color="#0f172a",
-                bbox=dict(boxstyle="round,pad=0.18", fc="#ecfeff", ec="#06b6d4", lw=0.8, alpha=0.98),
-                clip_on=False)
-
-# Highlight (subtle)
-if highlight_ix is not None:
-    ax.axhspan(highlight_ix-0.5, highlight_ix+0.5, color="#fff7ed", zorder=0.5)
-    ax.text(ax.get_xlim()[0], highlight_ix, "◆", va="center", ha="left",
-            color="#f97316", fontsize=10, fontweight="bold")
+# value labels: small, subtle, black, at the bar’s right edge (no background)
+pad = (ax.get_xlim()[1]) * 0.006
+for rect, v in zip(bars, vals):
+    x = rect.get_width()
+    y = rect.get_y() + rect.get_height()/2
+    ax.text(x + pad, y, fmt(v, None), va="center", ha="left",
+            fontsize=9, color="#111827")
 
 st.pyplot(fig, use_container_width=True)
-# ----------------- END METRIC LEADERBOARD (clean v2) -----------------
+# ----------------- END METRIC LEADERBOARD (spec) -----------------
+
 
 
 
