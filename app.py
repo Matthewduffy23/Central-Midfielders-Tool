@@ -870,308 +870,6 @@ st.dataframe(styled, use_container_width=True)
 # =====================================================================
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
-# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (UPDATED v4) ============================
-# Updates requested on v3:
-# 1) Player name font +2 and the inline number badge font +2.
-# 2) Info row font +2 and show overall xG (computed from xG per 90 * minutes/90, fallback to 'xG' if present).
-# 3) Strength/Weakness/Style chips: font +2 (white text).
-# 4) Keep the current spacing/gutters and bar thickness (no extra changes there).
-
-from io import BytesIO
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
-st.markdown("---")
-
-if player_row.empty:
-    st.info("Pick a player above.")
-else:
-    # --------- palette / tokens ---------
-    PAGE_BG   = "#0C0F14"
-    PANEL_BG  = "#11161C"
-    TRACK_BG  = "#2C323A"
-    TEXT      = "#E5E7EB"
-    ROLE_GREY = "#3A4048"   # medium grey for role chip
-
-    # chip backgrounds (text is white per request)
-    CHIP_G_BG = "#22C55E"   # strengths
-    CHIP_R_BG = "#EF4444"   # weaknesses
-    CHIP_B_BG = "#60A5FA"   # style
-
-    # ----------------- helpers -----------------
-    def div_color_tuple(v: float):
-        if pd.isna(v): return (0.6,0.63,0.66)
-        v = float(v)
-        if v <= 50:
-            t = v/50.0;  c1, c2 = np.array([239,68,68]),  np.array([234,179,8])
-        else:
-            t = (v-50)/50.0; c1, c2 = np.array([234,179,8]), np.array([34,197,94])
-        return tuple(((c1 + (c2-c1)*t)/255.0).astype(float))
-
-    def _text_width_frac(fig, s, *, fontsize=8, weight="normal"):
-        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
-                     transform=fig.transFigure, alpha=0)
-        fig.canvas.draw()
-        r = fig.canvas.get_renderer()
-        w_px = t.get_window_extent(renderer=r).width
-        t.remove()
-        return w_px / fig.bbox.width
-
-    def _text_height_frac(fig, s, *, fontsize=8, weight="normal"):
-        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
-                     transform=fig.transFigure, alpha=0)
-        fig.canvas.draw()
-        r = fig.canvas.get_renderer()
-        h_px = t.get_window_extent(renderer=r).height
-        t.remove()
-        return h_px / fig.bbox.height
-
-    # ultra-tight chips (bg fits text exactly) — fs bumped by +2 versus v3
-    def chip_row_exact(fig, items, y, bg, *, fs=11.1, weight="900", max_rows=2, gap_x=0.006):
-        if not items: return y
-        x0 = x = 0.035
-        row_gap = 0.034
-        pad_x = 0.004
-        pad_y = 0.002
-        h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
-        for s in items[:60]:
-            w = _text_width_frac(fig, s, fontsize=fs, weight=weight) + pad_x*2
-            if x + w > 0.965:
-                max_rows -= 1
-                if max_rows <= 0: break
-                x = x0; y -= row_gap
-            fig.patches.append(
-                mpatches.FancyBboxPatch((x, y - h*0.74), w, h,
-                    boxstyle=f"round,pad=0.001,rounding_size={h*0.45}",
-                    transform=fig.transFigure, facecolor=bg, edgecolor="none")
-            )
-            fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color="#FFFFFF",
-                     va="center", ha="left", fontweight=weight)
-            x += w + gap_x
-        return y - row_gap
-
-    # Role row: EXCLUDES "All In"; tight grey name pill + tight coloured number badge
-    # Keep font sizes same as v3 (they were already reduced by 1).
-    def roles_row_tight(fig, rs: dict, y, *, fs=9.6):
-        if not isinstance(rs, dict) or not rs: return y
-        rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
-        if not rs: return y
-
-        x0 = x = 0.035
-        row_gap = 0.040
-        gap = 0.003
-        pad_x = 0.006
-        pad_y = 0.003
-
-        for r, v in sorted(rs.items(), key=lambda kv: -kv[1])[:12]:
-            text_w = _text_width_frac(fig, r, fontsize=fs, weight="800")
-            text_h = _text_height_frac(fig, "Hg", fontsize=fs, weight="800")
-            role_w = text_w + pad_x*2
-            role_h = text_h + pad_y*2
-
-            num_text = f"{int(round(v))}"
-            num_wt   = _text_width_frac(fig, num_text, fontsize=fs-0.6, weight="900")
-            num_ht   = _text_height_frac(fig, "Hg", fontsize=fs-0.6, weight="900")
-            num_w    = num_wt + pad_x*2 * 0.9
-            num_h    = num_ht + pad_y*2 * 0.9
-
-            total = role_w + gap + num_w
-            if x + total > 0.965:
-                x = x0; y -= row_gap
-
-            fig.patches.append(
-                mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
-                    transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none")
-            )
-            fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
-                     va="center", ha="left", fontweight="800")
-
-            R,G,B = [int(255*c) for c in div_color_tuple(v)]
-            bx = x + role_w + gap
-            fig.patches.append(
-                mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
-                    transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
-            )
-            fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
-                     va="center", ha="center", fontweight="900")
-
-            x = bx + num_w + 0.010
-        return y - row_gap
-
-    # percentiles + actuals
-    def pct_of(metric: str) -> float:
-        if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
-            return float(pct_extra[metric])
-        col = f"{metric} Percentile"
-        if col in player_row.columns and pd.notna(player_row[col].iloc[0]):
-            return float(player_row[col].iloc[0])
-        return np.nan
-
-    def val_of(metric: str):
-        ply = player_row.iloc[0]
-        if metric not in ply.index or pd.isna(ply[metric]): return np.nan, "—"
-        v = float(ply[metric]); m = metric.lower()
-        if "%" in metric or "percent" in m: return v, f"{int(round(v))}%"
-        if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
-        return v, f"{v:.2f}"
-
-    # bar panel: keep v3 thickness/gap (already “a couple of mm”)
-    def bar_panel(fig, left, bottom, width, height, title, triples):
-        ax = fig.add_axes([left, bottom, width, height])
-        ax.set_facecolor(PANEL_BG)
-        labels = [t[0] for t in triples]
-        pcts   = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
-        texts  = [t[2] for t in triples]
-        n = len(labels); y = np.arange(n)[::-1]
-        ax.set_xlim(0, 100); ax.set_ylim(-0.5, n-0.5)
-
-        bar_h = 0.72
-        gap_h = 0.08
-        for yi in y:
-            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2-gap_h/2), 100, bar_h+gap_h, facecolor=TRACK_BG, edgecolor='none'))
-        for yi, v, t in zip(y, pcts, texts):
-            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2), v, bar_h,
-                                            facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
-        ax.set_yticks(y); ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
-        for sp in ax.spines.values(): sp.set_visible(False)
-        ax.tick_params(axis="x", labelsize=0, length=0)
-        ax.grid(False)
-        ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
-        ax.set_title(title, color=TEXT, fontsize=17, pad=6, fontweight="900")
-
-    # ----------------- figure & header -----------------
-    W, H = 1500, 1080
-    fig = plt.figure(figsize=(W/100, H/100), dpi=100)
-    fig.patch.set_facecolor(PAGE_BG)
-
-    ply = player_row.iloc[0]
-    team   = str(ply.get("Team","?"))
-    league = str(ply.get("League","?"))
-    pos    = str(ply.get("Position","?"))
-    age    = int(ply["Age"]) if pd.notna(ply.get("Age")) else None
-    mins   = int(ply.get("Minutes played", np.nan)) if pd.notna(ply.get("Minutes played")) else None
-    matches= int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
-    goals  = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
-
-    # Compute overall xG (prefer dataset 'xG' if present, else xG/90 * minutes/90)
-    if "xG" in ply.index and pd.notna(ply["xG"]):
-        xg_total = float(ply["xG"])
-    else:
-        xg_per90 = float(ply.get("xG per 90", np.nan)) if pd.notna(ply.get("xG per 90")) else np.nan
-        xg_total = float(xg_per90) * (float(mins) / 90.0) if (pd.notna(xg_per90) and mins) else np.nan
-    xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
-
-    assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
-
-    # Name (font +2 vs v3) + inline coloured badge (font +2)
-    name_fs = 24  # was 22
-    name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
-                         fontsize=name_fs, fontweight="900", va="top", ha="left")
-    fig.canvas.draw()
-    r = fig.canvas.get_renderer()
-    name_w_frac = name_text.get_window_extent(renderer=r).width / fig.bbox.width
-    name_h_frac = name_text.get_window_extent(renderer=r).height / fig.bbox.height
-    badge_x = 0.035 + name_w_frac + 0.010
-
-    if isinstance(role_scores, dict) and role_scores:
-        _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
-        R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        # slightly larger box to house larger text comfortably
-        bh = name_h_frac * 0.95
-        bw = bh
-        by = 0.962 - bh
-        fig.patches.append(
-            mpatches.FancyBboxPatch((badge_x, by), bw, bh,
-                boxstyle="round,pad=0.001,rounding_size=0.010",
-                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
-        )
-        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
-                 fontsize=14.8, color="#FFFFFF", va="center", ha="center", fontweight="900")  # +2
-
-    # Info row font +2 & show overall xG
-    meta = (
-        f"{pos} — {team} — {league} — Age {age if age else '—'} — "
-        f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
-        f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
-    )
-    fig.text(0.035, 0.912, meta, color="#FFFFFF", fontsize=12.2)
-
-    # ----------------- chips (font +2 vs v3) + roles -----------------
-    y = 0.882
-    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=11.1)
-    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=11.1)
-    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=11.1)
-    y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=9.6)
-
-    # ----------------- metric groups (label, percentile, actual_str) -----------------
-    ATTACKING = []
-    for lab, met in [
-        ("Non-Pen Goals", "Non-penalty goals per 90"),
-        ("xG per 90",     "xG per 90"),
-        ("Shots/90",      "Shots per 90"),
-        ("SoT %",         "Shots on target, %"),
-        ("Touches in box","Touches in box per 90"),
-        ("Dribbles/90",   "Dribbles per 90"),
-        ("Dribble %",     "Successful dribbles, %"),
-        ("Accelerations", "Accelerations per 90"),
-    ]:
-        ATTACKING.append((lab, pct_of(met), val_of(met)[1]))
-
-    DEFENSIVE = []
-    for lab, met in [
-        ("Def Duels/90",  "Defensive duels per 90"),
-        ("Def Duel %",    "Defensive duels won, %"),
-        ("PAdj Interc.",  "PAdj Interceptions"),
-        ("Aerial/90",     "Aerial duels per 90"),
-        ("Aerial %",      "Aerial duels won, %"),
-        ("Shots blocked", "Shots blocked per 90"),
-        ("Succ. def acts","Successful defensive actions per 90"),
-    ]:
-        DEFENSIVE.append((lab, pct_of(met), val_of(met)[1]))
-
-    POSSESSION = []
-    for lab, met in [
-        ("Passes/90",       "Passes per 90"),
-        ("Pass %",          "Accurate passes, %"),
-        ("Forward/90",      "Forward passes per 90"),
-        ("Forward %",       "Accurate forward passes, %"),
-        ("Long/90",         "Long passes per 90"),
-        ("Long %",          "Accurate long passes, %"),
-        ("Prog Passes/90",  "Progressive passes per 90"),
-        ("Pass to 3rd/90",  "Passes to final third per 90"),
-        ("To 3rd %",        "Accurate passes to final third, %"),
-        ("Passes to PA/90", "Passes to penalty area per 90"),
-        ("To PA %",         "Accurate passes to penalty area, %"),
-        ("Smart passes",    "Smart passes per 90"),
-        ("Key passes",      "Key passes per 90"),
-        ("Deep completions","Deep completions per 90"),
-        ("xA per 90",       "xA per 90"),
-    ]:
-        POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
-
-    # ----------------- panels — keep v3 positions/widths (spacing already good) -----------------
-    bar_panel(fig, left=0.060, bottom=0.410, width=0.37, height=0.245, title="Attacking",  triples=ATTACKING)
-    bar_panel(fig, left=0.060, bottom=0.130, width=0.37, height=0.245, title="Defensive",  triples=DEFENSIVE)
-    bar_panel(fig, left=0.540, bottom=0.130, width=0.36, height=0.525, title="Possession", triples=POSSESSION)
-
-    # ----------------- render + download -----------------
-    st.pyplot(fig, use_container_width=True)
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=170, bbox_inches="tight", facecolor=fig.get_facecolor())
-    st.download_button("⬇️ Download one-pager (PNG)",
-                       data=buf.getvalue(),
-                       file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
-                       mime="image/png")
-# ============================ END (E) ONE-PAGER (UPDATED v4) ============================
-
-
-
-
-
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
 st.markdown("---")
@@ -2058,6 +1756,300 @@ else:
                             "n_teams": int(results_cf.shape[0]),
                         })
 
+# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (UPDATED v5) ============================
+# Changes vs v4:
+# - Style/Strength/Weakness chips: font size reduced by 1 (was 11.1 → now 10.1).
+# - Title (player name) + inline number badge fonts increased by +1 (name 24 → 25; badge 14.8 → 15.8).
+
+from io import BytesIO
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+st.markdown("---")
+
+if player_row.empty:
+    st.info("Pick a player above.")
+else:
+    # --------- palette / tokens ---------
+    PAGE_BG   = "#0C0F14"
+    PANEL_BG  = "#11161C"
+    TRACK_BG  = "#2C323A"
+    TEXT      = "#E5E7EB"
+    ROLE_GREY = "#3A4048"   # medium grey for role chip
+
+    # chip backgrounds (text is white per request)
+    CHIP_G_BG = "#22C55E"   # strengths
+    CHIP_R_BG = "#EF4444"   # weaknesses
+    CHIP_B_BG = "#60A5FA"   # style
+
+    # ----------------- helpers -----------------
+    def div_color_tuple(v: float):
+        if pd.isna(v): return (0.6,0.63,0.66)
+        v = float(v)
+        if v <= 50:
+            t = v/50.0;  c1, c2 = np.array([239,68,68]),  np.array([234,179,8])
+        else:
+            t = (v-50)/50.0; c1, c2 = np.array([234,179,8]), np.array([34,197,94])
+        return tuple(((c1 + (c2-c1)*t)/255.0).astype(float))
+
+    def _text_width_frac(fig, s, *, fontsize=8, weight="normal"):
+        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
+                     transform=fig.transFigure, alpha=0)
+        fig.canvas.draw()
+        r = fig.canvas.get_renderer()
+        w_px = t.get_window_extent(renderer=r).width
+        t.remove()
+        return w_px / fig.bbox.width
+
+    def _text_height_frac(fig, s, *, fontsize=8, weight="normal"):
+        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
+                     transform=fig.transFigure, alpha=0)
+        fig.canvas.draw()
+        r = fig.canvas.get_renderer()
+        h_px = t.get_window_extent(renderer=r).height
+        t.remove()
+        return h_px / fig.bbox.height
+
+    # ultra-tight chips (bg fits text exactly) — font reduced by 1 vs v4
+    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
+        if not items: return y
+        x0 = x = 0.035
+        row_gap = 0.034
+        pad_x = 0.004
+        pad_y = 0.002
+        h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
+        for s in items[:60]:
+            w = _text_width_frac(fig, s, fontsize=fs, weight=weight) + pad_x*2
+            if x + w > 0.965:
+                max_rows -= 1
+                if max_rows <= 0: break
+                x = x0; y -= row_gap
+            fig.patches.append(
+                mpatches.FancyBboxPatch((x, y - h*0.74), w, h,
+                    boxstyle=f"round,pad=0.001,rounding_size={h*0.45}",
+                    transform=fig.transFigure, facecolor=bg, edgecolor="none")
+            )
+            fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color="#FFFFFF",
+                     va="center", ha="left", fontweight=weight)
+            x += w + gap_x
+        return y - row_gap
+
+    # Role row: EXCLUDES "All In"; tight grey name pill + tight coloured number badge
+    def roles_row_tight(fig, rs: dict, y, *, fs=9.6):
+        if not isinstance(rs, dict) or not rs: return y
+        rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
+        if not rs: return y
+
+        x0 = x = 0.035
+        row_gap = 0.040
+        gap = 0.003
+        pad_x = 0.006
+        pad_y = 0.003
+
+        for r, v in sorted(rs.items(), key=lambda kv: -kv[1])[:12]:
+            text_w = _text_width_frac(fig, r, fontsize=fs, weight="800")
+            text_h = _text_height_frac(fig, "Hg", fontsize=fs, weight="800")
+            role_w = text_w + pad_x*2
+            role_h = text_h + pad_y*2
+
+            num_text = f"{int(round(v))}"
+            num_wt   = _text_width_frac(fig, num_text, fontsize=fs-0.6, weight="900")
+            num_ht   = _text_height_frac(fig, "Hg", fontsize=fs-0.6, weight="900")
+            num_w    = num_wt + pad_x*2 * 0.9
+            num_h    = num_ht + pad_y*2 * 0.9
+
+            total = role_w + gap + num_w
+            if x + total > 0.965:
+                x = x0; y -= row_gap
+
+            fig.patches.append(
+                mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
+                    boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
+                    transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none")
+            )
+            fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
+                     va="center", ha="left", fontweight="800")
+
+            R,G,B = [int(255*c) for c in div_color_tuple(v)]
+            bx = x + role_w + gap
+            fig.patches.append(
+                mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
+                    boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
+                    transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
+            )
+            fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
+                     va="center", ha="center", fontweight="900")
+
+            x = bx + num_w + 0.010
+        return y - row_gap
+
+    # percentiles + actuals
+    def pct_of(metric: str) -> float:
+        if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
+            return float(pct_extra[metric])
+        col = f"{metric} Percentile"
+        if col in player_row.columns and pd.notna(player_row[col].iloc[0]):
+            return float(player_row[col].iloc[0])
+        return np.nan
+
+    def val_of(metric: str):
+        ply = player_row.iloc[0]
+        if metric not in ply.index or pd.isna(ply[metric]): return np.nan, "—"
+        v = float(ply[metric]); m = metric.lower()
+        if "%" in metric or "percent" in m: return v, f"{int(round(v))}%"
+        if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
+        return v, f"{v:.2f}"
+
+    # bar panel: keep v4 thickness/gap
+    def bar_panel(fig, left, bottom, width, height, title, triples):
+        ax = fig.add_axes([left, bottom, width, height])
+        ax.set_facecolor(PANEL_BG)
+        labels = [t[0] for t in triples]
+        pcts   = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
+        texts  = [t[2] for t in triples]
+        n = len(labels); y = np.arange(n)[::-1]
+        ax.set_xlim(0, 100); ax.set_ylim(-0.5, n-0.5)
+
+        bar_h = 0.72
+        gap_h = 0.08
+        for yi in y:
+            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2-gap_h/2), 100, bar_h+gap_h, facecolor=TRACK_BG, edgecolor='none'))
+        for yi, v, t in zip(y, pcts, texts):
+            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2), v, bar_h,
+                                            facecolor=div_color_tuple(v), edgecolor='none'))
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
+        ax.set_yticks(y); ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
+        for sp in ax.spines.values(): sp.set_visible(False)
+        ax.tick_params(axis="x", labelsize=0, length=0)
+        ax.grid(False)
+        ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
+        ax.set_title(title, color=TEXT, fontsize=17, pad=6, fontweight="900")
+
+    # ----------------- figure & header -----------------
+    W, H = 1500, 1080
+    fig = plt.figure(figsize=(W/100, H/100), dpi=100)
+    fig.patch.set_facecolor(PAGE_BG)
+
+    ply = player_row.iloc[0]
+    team   = str(ply.get("Team","?"))
+    league = str(ply.get("League","?"))
+    pos    = str(ply.get("Position","?"))
+    age    = int(ply["Age"]) if pd.notna(ply.get("Age")) else None
+    mins   = int(ply.get("Minutes played", np.nan)) if pd.notna(ply.get("Minutes played")) else None
+    matches= int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
+    goals  = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
+
+    # overall xG (prefer 'xG' if present)
+    if "xG" in ply.index and pd.notna(ply["xG"]):
+        xg_total = float(ply["xG"])
+    else:
+        xg_per90 = float(ply.get("xG per 90", np.nan)) if pd.notna(ply.get("xG per 90")) else np.nan
+        xg_total = float(xg_per90) * (float(mins) / 90.0) if (pd.notna(xg_per90) and mins) else np.nan
+    xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
+
+    assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
+
+    # Name (font +1 vs v4) + inline coloured badge (font +1)
+    name_fs = 25  # was 24
+    name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
+                         fontsize=name_fs, fontweight="900", va="top", ha="left")
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    name_w_frac = name_text.get_window_extent(renderer=r).width / fig.bbox.width
+    name_h_frac = name_text.get_window_extent(renderer=r).height / fig.bbox.height
+    badge_x = 0.035 + name_w_frac + 0.010
+
+    if isinstance(role_scores, dict) and role_scores:
+        _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
+        R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
+        # slightly taller to house bigger text
+        bh = name_h_frac * 1.02
+        bw = bh
+        by = 0.962 - bh
+        fig.patches.append(
+            mpatches.FancyBboxPatch((badge_x, by), bw, bh,
+                boxstyle="round,pad=0.001,rounding_size=0.011",
+                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
+        )
+        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
+                 fontsize=15.8, color="#FFFFFF", va="center", ha="center", fontweight="900")  # +1
+
+    # Info row (font +2 vs v4 already applied in v4; keep)
+    meta = (
+        f"{pos} — {team} — {league} — Age {age if age else '—'} — "
+        f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
+        f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
+    )
+    fig.text(0.035, 0.912, meta, color="#FFFFFF", fontsize=12.2)
+
+    # ----------------- chips (reduced by 1 vs v4) + roles -----------------
+    y = 0.882
+    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
+    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
+    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
+    y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=9.6)
+
+    # ----------------- metric groups (label, percentile, actual_str) -----------------
+    ATTACKING = []
+    for lab, met in [
+        ("Non-Pen Goals", "Non-penalty goals per 90"),
+        ("xG per 90",     "xG per 90"),
+        ("Shots/90",      "Shots per 90"),
+        ("SoT %",         "Shots on target, %"),
+        ("Touches in box","Touches in box per 90"),
+        ("Dribbles/90",   "Dribbles per 90"),
+        ("Dribble %",     "Successful dribbles, %"),
+        ("Accelerations", "Accelerations per 90"),
+    ]:
+        ATTACKING.append((lab, pct_of(met), val_of(met)[1]))
+
+    DEFENSIVE = []
+    for lab, met in [
+        ("Def Duels/90",  "Defensive duels per 90"),
+        ("Def Duel %",    "Defensive duels won, %"),
+        ("PAdj Interc.",  "PAdj Interceptions"),
+        ("Aerial/90",     "Aerial duels per 90"),
+        ("Aerial %",      "Aerial duels won, %"),
+        ("Shots blocked", "Shots blocked per 90"),
+        ("Succ. def acts","Successful defensive actions per 90"),
+    ]:
+        DEFENSIVE.append((lab, pct_of(met), val_of(met)[1]))
+
+    POSSESSION = []
+    for lab, met in [
+        ("Passes/90",       "Passes per 90"),
+        ("Pass %",          "Accurate passes, %"),
+        ("Forward/90",      "Forward passes per 90"),
+        ("Forward %",       "Accurate forward passes, %"),
+        ("Long/90",         "Long passes per 90"),
+        ("Long %",          "Accurate long passes, %"),
+        ("Prog Passes/90",  "Progressive passes per 90"),
+        ("Pass to 3rd/90",  "Passes to final third per 90"),
+        ("To 3rd %",        "Accurate passes to final third, %"),
+        ("Passes to PA/90", "Passes to penalty area per 90"),
+        ("To PA %",         "Accurate passes to penalty area, %"),
+        ("Smart passes",    "Smart passes per 90"),
+        ("Key passes",      "Key passes per 90"),
+        ("Deep completions","Deep completions per 90"),
+        ("xA per 90",       "xA per 90"),
+    ]:
+        POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
+
+    # ----------------- panels — same layout as v4 -----------------
+    bar_panel(fig, left=0.060, bottom=0.410, width=0.37, height=0.245, title="Attacking",  triples=ATTACKING)
+    bar_panel(fig, left=0.060, bottom=0.130, width=0.37, height=0.245, title="Defensive",  triples=DEFENSIVE)
+    bar_panel(fig, left=0.540, bottom=0.130, width=0.36, height=0.525, title="Possession", triples=POSSESSION)
+
+    # ----------------- render + download -----------------
+    st.pyplot(fig, use_container_width=True)
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=170, bbox_inches="tight", facecolor=fig.get_facecolor())
+    st.download_button("⬇️ Download one-pager (PNG)",
+                       data=buf.getvalue(),
+                       file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
+                       mime="image/png")
+# ============================ END (E) ONE-PAGER (UPDATED v5) ============================
 
 
 
