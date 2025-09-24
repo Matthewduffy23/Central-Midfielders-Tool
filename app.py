@@ -385,31 +385,50 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (blue, light-grey) -----------------
+# ----------------- METRIC LEADERBOARD (publication) -----------------
 import re, numpy as np, matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.ticker import FuncFormatter
-from matplotlib import rcParams
+from matplotlib import rcParams, font_manager as fm
 
+# --- Rendering & typography (crisper text)
 rcParams.update({
-    "figure.dpi": 260,
+    "figure.dpi": 280,
+    "savefig.dpi": 280,
     "text.antialiased": True,
     "font.family": "sans-serif",
     "font.sans-serif": ["Inter","SF Pro Text","Segoe UI","Roboto","Helvetica Neue","Arial","DejaVu Sans"],
 })
 
+# (Optional) If you ship a font file, it will be picked up automatically:
+for p in ["./fonts/Inter-Variable.ttf","./fonts/Inter-Regular.ttf"]:
+    try: fm.fontManager.addfont(p)
+    except Exception: pass
+
 st.markdown("---")
 
+# ----------------- Controls
 with st.expander("Leaderboard settings", expanded=False):
     default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
     metric_pick   = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
-    top_n         = st.slider("Show top N", 5, 40, 20, 5)
+    top_n         = st.slider("Top N", 5, 40, 20, 5)
 
-# Data (actual values only)
+    # Palette controls
+    palette_dir   = st.radio(
+        "Palette direction for higher values",
+        ["Dark → Light (darker is better)", "Light → Dark (lighter is better)"],
+        horizontal=True, index=0
+    )
+    blue_depth    = st.slider("Blue depth (darker end)", 0, 100, 85, 5,
+                              help="Controls how deep the darkest blue is.")
+    right_pad_pct = st.slider("Right label padding (px % of width)", 0.4, 1.2, 0.7, 0.05)
+
+# ----------------- Data (actual values only)
 val_col = metric_pick
-plot_df = df_f[["Player","Team",val_col]].dropna(subset=[val_col]).copy()
+plot_df = df_f[["Player", "Team", val_col]].dropna(subset=[val_col]).copy()
 plot_df = plot_df.sort_values(val_col, ascending=False).head(int(top_n)).reset_index(drop=True)
 
+# Name formatter: "M.Grimes, Coventry"
 def label_name_team(player, team):
     tokens = re.split(r"\s+", str(player).strip())
     if tokens:
@@ -423,59 +442,76 @@ def label_name_team(player, team):
 y_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
 vals = plot_df[val_col].astype(float).values
 
-# Dark blue -> light blue (darker = better)
-cmap = LinearSegmentedColormap.from_list(
-    "dark_to_light_blue", ["#0a2a66", "#1e60d4", "#6aa6ff", "#cfe8ff"]
-)
-norm   = Normalize(vmin=float(vals.min()), vmax=float(vals.max()))
+# ----------------- Color mapping (Dark-Blue <-> Light-Blue)
+# We'll build a smooth 4-point ramp and flip it depending on the radio selection.
+def build_blue_cmap(depth=85, reverse=False):
+    # depth controls the darkest tone (lower L*, higher saturation)
+    # anchor colors (you can tweak if you want even moodier blues)
+    depth = max(40, min(95, depth))
+    darkest = "#0a2a66"  # deep navy
+    dark    = "#1e60d4"  # strong blue
+    mid     = "#6aa6ff"  # mid blue
+    light   = "#d8ebff"  # light blue (slightly lighter than before for contrast)
+    cols = [darkest, dark, mid, light]
+    if reverse:
+        cols = cols[::-1]
+    return LinearSegmentedColormap.from_list("custom_blues", cols)
+
+reverse_for_higher = (palette_dir == "Light → Dark (lighter is better)")
+cmap  = build_blue_cmap(depth=blue_depth, reverse=reverse_for_higher)
+norm  = Normalize(vmin=float(vals.min()), vmax=float(vals.max()))
 colors = [cmap(norm(v)) for v in vals]
 
-# Figure
-fig, ax = plt.subplots(figsize=(11.2, 6.0))
+# ----------------- Figure
+fig, ax = plt.subplots(figsize=(11.4, 6.2))
 page_grey = "#f3f4f6"
 fig.patch.set_facecolor(page_grey)
-ax.set_facecolor(page_grey)  # chart light grey too
+ax.set_facecolor(page_grey)  # chart light-grey per your spec
 
-# Bold title, no subtitle
+# Title (bold, no subtitle)
 fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, fontweight="bold",
-             color="#111827", y=0.98)
-plt.subplots_adjust(top=0.90, left=0.25, right=0.95, bottom=0.12)
+             color="#111827", y=0.985)
+plt.subplots_adjust(top=0.90, left=0.26, right=0.96, bottom=0.14)
 
-# Bars (no edges)
+# Bars (no edge to keep them sharp)
 bars = ax.barh(range(len(vals)), vals, color=colors, edgecolor="none", zorder=2)
 
-# Axes & grid (light)
+# Axes & labels
 ax.invert_yaxis()
 ax.set_yticks(range(len(vals)))
-ax.set_yticklabels(y_labels, fontsize=10.5, color="#111827")
+ax.set_yticklabels(y_labels, fontsize=10.5, color="#111827")  # darker text
 ax.set_ylabel("")
-ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=10.5)
-ax.grid(axis="x", color="#e6e8eb", linewidth=0.8, zorder=1)
+ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=10.0)  # 1 smaller as requested
 
-# Remove left ticks/line; keep bottom subtle
+# Gridlines: very light; keep bottom spine subtle, others hidden
+ax.grid(axis="x", color="#e8eaee", linewidth=0.8, zorder=1)
 ax.spines["left"].set_visible(False)
-ax.tick_params(axis="y", length=0)
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 ax.spines["bottom"].set_color("#d3d7dd")
+ax.tick_params(axis="y", length=0)
 ax.tick_params(axis="x", labelsize=9, colors="#374151")
 
-# Tick formatting & limits
+# Clean tick formatting & headroom
 def fmt(x, _): return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
 ax.xaxis.set_major_formatter(FuncFormatter(fmt))
 xmax = float(vals.max()) if len(vals) else 1.0
-ax.set_xlim(0, xmax * 1.06)
+ax.set_xlim(0, xmax * 1.07)
 
-# Value labels on right edge — 1pt smaller than before
-pad = (ax.get_xlim()[1]) * 0.006
+# Right-edge value labels (plain, small, no background)
+pad = (ax.get_xlim()[1]) * (right_pad_pct / 100) if right_pad_pct > 5 else (ax.get_xlim()[1] * 0.006)
+# (right_pad_pct slider is in %; UI displays decimals; we support both ranges gracefully)
+if right_pad_pct < 5:   # user kept default slider scale (0.4–1.2)
+    pad = ax.get_xlim()[1] * 0.006 * (right_pad_pct / 0.7)
+
 for rect, v in zip(bars, vals):
     ax.text(rect.get_width() + pad,
             rect.get_y() + rect.get_height()/2,
             fmt(v, None),
-            va="center", ha="left", fontsize=8.2, color="#111827")
+            va="center", ha="left", fontsize=8.5, color="#111827")
 
 st.pyplot(fig, use_container_width=True)
-# ----------------- END -----------------
+# ----------------- END METRIC LEADERBOARD (publication) -----------------
 
 
 
