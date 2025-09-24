@@ -385,11 +385,29 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (spec) -----------------
+# ----------------- METRIC LEADERBOARD (studio-crisp) -----------------
 import re, numpy as np, matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
 from matplotlib.ticker import FuncFormatter
-from matplotlib.colors import TwoSlopeNorm
+from matplotlib import font_manager as fm, rcParams
+
+# --- Typography & rendering: register nicer sans fonts if present and bump DPI
+for path in [
+    "./fonts/Inter-Regular.ttf", "./fonts/Inter-Variable.ttf",
+    "/usr/share/fonts/truetype/inter/Inter-Regular.ttf",
+    "/System/Library/Fonts/SFNS.ttf"  # macOS SF fallback if available
+]:
+    try: fm.fontManager.addfont(path)
+    except Exception: pass
+
+rcParams.update({
+    "figure.dpi": 260,              # crisp on Streamlit canvas
+    "savefig.dpi": 260,
+    "text.antialiased": True,
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Inter","SF Pro Text","Segoe UI","Roboto","Helvetica Neue","Arial","DejaVu Sans"],
+    "axes.titleweight": "bold",
+})
 
 st.markdown("---")
 
@@ -409,73 +427,68 @@ plot_df = plot_df.sort_values(val_col, ascending=False).head(int(top_n)).reset_i
 
 # ----- label formatter: "M.Grimes, Coventry"
 def label_name_team(player, team):
-    # Take first initial + surname (last token), glue with dot and no space
     tokens = re.split(r"\s+", str(player).strip())
-    if not tokens:
-        base = str(player)
+    if tokens:
+        initial = tokens[0][:1]
+        last = re.sub(r"[^\w\-’']", "", tokens[-1])
+        name = f"{initial}.{last}"
     else:
-        first = tokens[0]
-        last  = tokens[-1]
-        initial = first[0] if first else ""
-        # strip punctuation in last, keep accents
-        last = re.sub(r"[^\w\-’']", "", last)
-        base = f"{initial}.{last}"
-    return f"{base}, {team}"
+        name = str(player)
+    return f"{name}, {team}"
 
 y_labels = [label_name_team(r.Player, r.Team) for r in plot_df.itertuples(index=False)]
+vals = plot_df[val_col].astype(float).values
 
-# ----- colors: Red → Gold → Green (green = best)
-# Tableau-like hues
+# ----- palette: Red → Gold → Green (green = best)
 cmap = LinearSegmentedColormap.from_list("rgg_div", ["#d62728", "#ffbf00", "#2ca02c"])
-vals = plot_df[val_col].values.astype(float)
 mid  = float(np.median(vals)) if len(vals) else 0.0
 norm = TwoSlopeNorm(vmin=float(vals.min()), vcenter=mid, vmax=float(vals.max()))
 colors = [cmap(norm(v)) for v in vals]
 
 # ----- figure
-fig, ax = plt.subplots(figsize=(11, 6.2), dpi=170)
-fig.patch.set_facecolor("#f6f7f9")   # light grey page
+fig, ax = plt.subplots(figsize=(11.2, 6.0))
+fig.patch.set_facecolor("#f5f6f8")  # light page
 ax.set_facecolor("white")
 
-# title (no subtitle)
-fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, fontweight="bold", color="#111827", y=0.98)
-plt.subplots_adjust(top=0.90, left=0.24, right=0.94, bottom=0.10)
+# Title (no subtitle)
+fig.suptitle(f"Top {len(plot_df)} – {metric_pick}", fontsize=16, color="#111827", y=0.98)
+plt.subplots_adjust(top=0.90, left=0.25, right=0.95, bottom=0.12)
 
-# bars (no edge line)
-bars = ax.barh(range(len(plot_df)), vals, color=colors, edgecolor="none", zorder=2)
+# Bars (no edges to avoid fuzz)
+bars = ax.barh(range(len(vals)), vals, color=colors, edgecolor="none", zorder=2)
 
-# axes + grid (light)
+# Axes & grid
 ax.invert_yaxis()
-ax.set_yticks(range(len(plot_df)))
-ax.set_yticklabels(y_labels, fontsize=10, color="#111827")
+ax.set_yticks(range(len(vals)))
+ax.set_yticklabels(y_labels, fontsize=10.5, color="#111827")
 ax.set_ylabel("")
-ax.set_xlabel(val_col, color="#111827", fontweight="bold", labelpad=6)
-ax.grid(axis="x", color="#e6e8eb", linewidth=0.8, zorder=1)
-# remove left-edge lines/ticks
+ax.set_xlabel(val_col, color="#111827", labelpad=6, fontsize=10.5)
+ax.grid(axis="x", color="#e8eaee", linewidth=0.8, zorder=1)   # light gridlines
+
+# Remove left ticks/line completely
 ax.spines["left"].set_visible(False)
-ax.tick_params(axis="y", length=0)     # no tick marks
+ax.tick_params(axis="y", length=0)
+# Keep bottom spine subtle, hide others
+ax.spines["bottom"].set_color("#d3d7dd")
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
-ax.spines["bottom"].set_color("#d1d5db")
-ax.tick_params(axis="x", labelsize=9, colors="#374151")
 
-# tidy x ticks and limits
-def fmt(x, _): 
-    return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
+# Neat tick formatting & limits
+def fmt(x, _): return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
 ax.xaxis.set_major_formatter(FuncFormatter(fmt))
 xmax = float(vals.max()) if len(vals) else 1.0
 ax.set_xlim(0, xmax * 1.06)
 
-# value labels: small, subtle, black, at the bar’s right edge (no background)
+# Value labels: small plain black, at bar’s right edge (no background)
 pad = (ax.get_xlim()[1]) * 0.006
 for rect, v in zip(bars, vals):
-    x = rect.get_width()
-    y = rect.get_y() + rect.get_height()/2
-    ax.text(x + pad, y, fmt(v, None), va="center", ha="left",
-            fontsize=9, color="#111827")
+    ax.text(rect.get_width() + pad,
+            rect.get_y() + rect.get_height()/2,
+            fmt(v, None),
+            va="center", ha="left", fontsize=9.2, color="#111827")
 
 st.pyplot(fig, use_container_width=True)
-# ----------------- END METRIC LEADERBOARD (spec) -----------------
+# ----------------- END METRIC LEADERBOARD (studio-crisp) -----------------
 
 
 
