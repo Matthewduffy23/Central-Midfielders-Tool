@@ -871,11 +871,8 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ==================== SNAPSHOT (clean header + uniform bars) ====================
-import io, math
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+# ==================== SNAPSHOT (absolute layout; uniform bars) ====================
+import io, numpy as np, matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -886,7 +883,6 @@ with st.expander("Snapshot settings", expanded=False):
     show_target = st.checkbox("Show 50th percentile guide", True)
     round_vals  = st.selectbox("Round actual values to", [0,1,2], index=1)
 
-# ---- guards ----
 if 'player_row' not in globals() or player_row.empty:
     st.info("Pick a player above."); st.stop()
 ply = player_row.iloc[0]
@@ -894,7 +890,7 @@ pool_df = build_pool_df()
 if pool_df.empty:
     st.warning("Comparison pool is empty."); st.stop()
 
-# ---- percentiles vs current pool ----
+# ---------- percentiles ----------
 def pct_in_pool(series, val):
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty or pd.isna(val): return np.nan
@@ -906,7 +902,7 @@ feat_cols = [f for f in FEATURES if f in pool_df.columns]
 for f in feat_cols: pool_df[f] = pd.to_numeric(pool_df[f], errors="coerce")
 PCT = {f: pct_in_pool(pool_df[f], ply.get(f)) for f in feat_cols}
 
-# ---- role scores (use your table calc; fall back if missing) ----
+# ---------- role scores ----------
 def role_scores_for_row(row):
     if 'table_style_role_scores_from_row' in globals():
         return table_style_role_scores_from_row(row)
@@ -923,25 +919,20 @@ role_scores = {k:v for k,v in role_scores_for_row(player_row.iloc[0]).items() if
 best_role, best_score = max(role_scores.items(), key=lambda kv: kv[1]) if role_scores else ("—", np.nan)
 top5 = sorted(role_scores.items(), key=lambda kv: -kv[1])[:5]
 
-# ---- groups (fixed order; possession has more) ----
-ATTACK = [
-    "Touches in box per 90","Offensive duels per 90","Accelerations per 90","xG per 90",
-    "Shots per 90","Progressive runs per 90","Offensive duels won, %","SoT %","Non-penalty goals per 90",
-]
-POSSESS = [
-    "Deep completions per 90","Dribbles per 90","Successful dribbles, %","Accurate progressive passes, %",
-    "Passes to penalty area per 90","Key passes per 90","xA per 90","Long passes per 90","Passes to final third per 90",
-    "Accurate long passes, %","Forward passes per 90","Progressive passes per 90","Passes per 90","Smart passes per 90",
-]
-DEFENCE = [
-    "PAdj Interceptions","Defensive duels per 90","Defensive duels won, %",
-    "Aerial duels per 90","Aerial duels won, %","Successful defensive actions per 90","Shots blocked per 90",
-]
+# ---------- metric groups ----------
+ATTACK = ["Touches in box per 90","Offensive duels per 90","Accelerations per 90","xG per 90",
+          "Shots per 90","Progressive runs per 90","Offensive duels won, %","SoT %","Non-penalty goals per 90"]
+POSSESS = ["Deep completions per 90","Dribbles per 90","Successful dribbles, %","Accurate progressive passes, %",
+           "Passes to penalty area per 90","Key passes per 90","xA per 90","Long passes per 90",
+           "Passes to final third per 90","Accurate long passes, %","Forward passes per 90","Progressive passes per 90",
+           "Passes per 90","Smart passes per 90"]
+DEFENCE = ["PAdj Interceptions","Defensive duels per 90","Defensive duels won, %","Aerial duels per 90",
+           "Aerial duels won, %","Successful defensive actions per 90","Shots blocked per 90"]
 ATTACK  = [m for m in ATTACK  if m in feat_cols]
 POSSESS = [m for m in POSSESS if m in feat_cols]
 DEFENCE = [m for m in DEFENCE if m in feat_cols]
 
-# ---- helpers ----
+# ---------- display helpers ----------
 def short(s: str) -> str:
     s = s.replace(" per 90","/90").replace("per 90","/90")
     s = s.replace("Non-penalty goals","NP Goals").replace("Shots on target, %","SoT %")
@@ -949,16 +940,10 @@ def short(s: str) -> str:
     s = s.replace("Accurate progressive passes, %","Acc Prog Pass %").replace("Accurate long passes, %","Acc Long Pass %")
     return s
 
-# Red→Gold→Green (Tableau-ish)
-DIV = LinearSegmentedColormap.from_list("rgg",
-        ["#d63637","#f3c144","#2cb463"])  # red → gold → green
+DIV = LinearSegmentedColormap.from_list("rgg", ["#d63637","#f3c144","#2cb463"])  # red → gold → green
+def chip_color(v): return DIV(np.clip(v,0,100)/100)
 
-def score_color(v):  # 0..100 to color (for role score chip)
-    v = np.clip(v, 0, 100)
-    t = v/100.0
-    return DIV(t)
-
-# ---- layout colors ----
+# ---------- colors ----------
 PAGE_BG   = "#0b0c10"
 HEADER_BG = "#0f1115"
 PANEL_BG  = "#121418"
@@ -968,120 +953,98 @@ WHITE     = "#f7f7f8"
 MUTED     = "#cbd5e1"
 MUTED2    = "#94a3b8"
 
-# ---- figure (taller header zone to avoid overlap) ----
-W, H, DPI = 14.0, 8.8, 260
-fig = plt.figure(figsize=(W, H), dpi=DPI, layout="constrained")
+# ---------- absolute layout (prevents shrinking) ----------
+W, H, DPI = 17, 10, 220
+fig = plt.figure(figsize=(W, H), dpi=DPI)
 fig.patch.set_facecolor(PAGE_BG)
-gs = gridspec.GridSpec(nrows=4, ncols=2, figure=fig,
-                       height_ratios=[0.95, 1.0, 1.2, 1.0],  # big header + tall possession row
-                       width_ratios=[1, 1])
 
-# ================= HEADER (rows) =================
-axH = fig.add_subplot(gs[0, :]); axH.set_xlim(0, 1); axH.set_ylim(0, 1); axH.axis("off")
+# Axes rectangles: [left, bottom, width, height] in 0..1
+axH = fig.add_axes([0.03, 0.72, 0.94, 0.24])   # header (tall)
+axA = fig.add_axes([0.06, 0.44, 0.40, 0.22])   # attacking
+axP = fig.add_axes([0.54, 0.30, 0.40, 0.36])   # possession (taller)
+axD = fig.add_axes([0.06, 0.08, 0.40, 0.22])   # defensive
+# bottom-right intentionally empty
+
+# ---------- header ----------
+for ax in [axH, axA, axP, axD]: ax.set_axis_off()
 axH.add_patch(Rectangle((0,0), 1, 1, fc=HEADER_BG, ec="none"))
 
-# row 1: name + best role score chip (colored), best role label
 name = str(ply.get("Player",""))
-axH.text(0.03, 0.83, name, color=WHITE, fontsize=22, fontweight=800, va="center", ha="left")
+axH.text(0.02, 0.87, name, color=WHITE, fontsize=22, fontweight=800, va="center", ha="left")
 if pd.notna(best_score):
-    axH.text(0.03 + min(0.42, 0.016*len(name)) + 0.02, 0.83,
-             f"{int(round(best_score))}", color="#071008", fontsize=11, fontweight=800, va="center",
-             bbox=dict(boxstyle="round,pad=0.28", fc=score_color(best_score), ec="none"))
-    axH.text(0.03 + min(0.42, 0.016*len(name)) + 0.075, 0.83,
-             f"{best_role}", color=MUTED, fontsize=10, va="center")
+    axH.text(0.02 + 0.01 + 0.018*min(len(name),18), 0.87, f"{int(round(best_score))}",
+             color="#071008", fontsize=11, fontweight=800,
+             bbox=dict(boxstyle="round,pad=0.28", fc=chip_color(best_score), ec="none"), va="center")
+    axH.text(0.02 + 0.12 + 0.01*min(len(name),18), 0.87, best_role, color=MUTED, fontsize=10, va="center")
 
-# row 2: meta
 mins  = int(ply.get("Minutes played",0))
 n90s  = mins/90.0
 g     = int(ply.get("Goals",0)) if pd.notna(ply.get("Goals")) else 0
 a     = int(ply.get("Assists",0)) if pd.notna(ply.get("Assists")) else 0
-# xG total ≈ xG/90 * 90s if no season total given
 xg90  = float(ply.get("xG per 90", np.nan)) if "xG per 90" in ply.index else np.nan
 xg    = (xg90*n90s) if not np.isnan(xg90) else np.nan
-
-meta = [
-    f"{ply.get('Position','—')}",
-    f"Age {int(ply.get('Age',0))}",
-    f"{ply.get('League','—')}",
-    f"Mins {mins:,}",
-    f"90’s {n90s:.1f}",
-    f"G {g}",
-    f"xG {xg:.2f}" if not np.isnan(xg) else None,
-    f"A {a}",
-]
+meta = [f"{ply.get('Position','—')}", f"Age {int(ply.get('Age',0))}", f"{ply.get('League','—')}",
+        f"Mins {mins:,}", f"90’s {n90s:.1f}", f"G {g}", f"xG {xg:.2f}" if not np.isnan(xg) else None, f"A {a}"]
 meta = [m for m in meta if m]
-axH.text(0.03, 0.68, "  •  ".join(meta), color=MUTED, fontsize=10.5, ha="left", va="center")
+axH.text(0.02, 0.72, "  •  ".join(meta), color=MUTED, fontsize=10.5)
 
-# row 3–5: strengths / weaknesses / style — two rows each if long
-def draw_chips(y_top, items, fc, rows=2):
-    x0 = 0.03; x = x0; y = y_top
-    max_w = 0.97
-    for i, t in enumerate(items[:24]):  # cap to keep tidy
-        w = 0.08 + 0.009*len(t)
-        if x + w > max_w:
+def draw_chip_row(y, items, fc, rows=2):
+    x0 = 0.02; x = x0; ycur = y
+    for t in items[:24]:
+        w = 0.05 + 0.008*len(t)
+        if x + w > 0.98:
             rows -= 1
             if rows <= 0: break
-            x = x0; y -= 0.06
-        axH.text(x, y, t, color="#0b0f13", fontsize=9,
+            x = x0; ycur -= 0.12
+        axH.text(x, ycur, t, color="#0b0f13", fontsize=9,
                  bbox=dict(boxstyle="round,pad=0.25", fc=fc, ec="none"))
-        x += w + 0.01
+        x += w + 0.012
 
-draw_chips(0.55, strengths,  "#22c55e")  # green
-draw_chips(0.43, weaknesses, "#f87171")  # red
-draw_chips(0.31, styles,     "#60a5fa")  # blue
+draw_chip_row(0.56, strengths,  "#22c55e")
+draw_chip_row(0.44, weaknesses, "#f87171")
+draw_chip_row(0.32, styles,     "#60a5fa")
 
-# row 6: top 5 role scores — light grey badge + colored score chip
-x = 0.03
+# top-5 role score badges in one neat line
+x = 0.02
 for role, sc in top5:
-    label_w = 0.12 + 0.010*len(role)
-    axH.text(x, 0.18, role, color="#0e141b", fontsize=9.2,
+    label = role
+    w = 0.10 + 0.009*len(label)
+    axH.text(x, 0.18, label, color="#0e141b", fontsize=9.2,
              bbox=dict(boxstyle="round,pad=0.22", fc="#e5e7eb", ec="none"), va="center")
-    axH.text(x + label_w, 0.18, f"{int(round(sc))}", color="#071008", fontsize=9.2, fontweight=800,
-             bbox=dict(boxstyle="round,pad=0.22", fc=score_color(sc), ec="none"), va="center")
-    x += label_w + 0.07
+    axH.text(x + w, 0.18, f"{int(round(sc))}", color="#071008", fontsize=9.2, fontweight=800,
+             bbox=dict(boxstyle="round,pad=0.22", fc=chip_color(sc), ec="none"), va="center")
+    x += w + 0.07
 
-# ================== PANEL DRAWER ==================
-def draw_panel(ax, title, metrics, *, panel_height=1.0):
-    ax.set_xlim(-24, 112); ax.set_ylim(-0.5, len(metrics)-0.5); ax.axis("off")
-    ax.add_patch(Rectangle((-24,-0.5), 136, len(metrics), fc=PANEL_BG, ec="none", zorder=0))
+# ---------- bar panel drawer (uniform geometry) ----------
+def draw_panel(ax, title, metrics):
+    ax.set_xlim(-24, 112); ax.set_ylim(-0.5, len(metrics)-0.5)
+    ax.add_patch(Rectangle((-24,-0.5), 136, len(metrics), fc=PANEL_BG, ec="none"))
     ax.text(-22, len(metrics)-0.10, title, color=WHITE, fontsize=14, fontweight=800, va="top")
 
-    # geometry
-    H = 0.42                                 # bar height (uniform, all panels)
-    gap = 0.64                               # consistent vertical gap
-    y0 = len(metrics)-1
-    # grid + 50th
+    H_BAR = 0.42         # identical bar height everywhere
+    GAP   = 0.64         # identical spacing everywhere
+    y0    = len(metrics)-1
+
     for xg in range(0, 101, 10):
-        ax.plot([xg, xg], [-0.5, len(metrics)-0.5], color=GRID_MID, lw=0.7, zorder=1)
+        ax.plot([xg,xg],[-0.5,len(metrics)-0.5], color=GRID_MID, lw=0.7, zorder=1)
     if show_target:
-        ax.plot([50, 50], [-0.5, len(metrics)-0.5], color=MUTED2, ls="--", lw=1.0, zorder=2)
+        ax.plot([50,50],[-0.5,len(metrics)-0.5], color=MUTED2, ls="--", lw=1.0, zorder=2)
 
     for i, m in enumerate(metrics):
-        y = y0 - i*gap
-        # metric label (white)
+        y = y0 - i*GAP
         ax.text(-23, y, short(m), ha="right", va="center", fontsize=9.4, color=WHITE)
-        # track
-        ax.barh(y, 100, height=H, left=0, color=TRACK_BG, edgecolor="none", zorder=1)
-        # fill by percentile (diverging color)
+        ax.barh(y, 100, height=H_BAR, left=0, color="#1e232c", edgecolor="none", zorder=1)
         p = PCT.get(m, np.nan)
         if not np.isnan(p):
-            ax.barh(y, p, height=H, left=0, color=DIV(p/100.0), edgecolor="none", zorder=3)
-        # small value, inside-left
+            ax.barh(y, p, height=H_BAR, left=0, color=DIV(p/100.0), edgecolor="none", zorder=3)
         v = ply.get(m)
-        sval = (f"{v:.{round_vals}f}" if isinstance(v, (int,float,np.floating))
-                else (str(v) if v is not None else ""))
+        sval = (f"{v:.{round_vals}f}" if isinstance(v,(int,float,np.floating)) else (str(v) if v is not None else ""))
         ax.text(2, y, sval, ha="left", va="center", fontsize=8.4, color="#0b0c10", zorder=4)
+    ax.axis("off")
 
-# ================== CHART PANELS ===================
-# Row 2: Attacking (left) + Possession (right, taller metrics list)
-axA = fig.add_subplot(gs[1,0]); draw_panel(axA, "Attacking", ATTACK)
-axP = fig.add_subplot(gs[1,1]); draw_panel(axP, "Possession", POSSESS)
-
-# Row 3: extend Possession further down by repeating the right column (blank left)
-axP2 = fig.add_subplot(gs[2,1]); draw_panel(axP2, " ", [])  # empty spacer that continues bg
-
-# Row 4: Defensive (left). Right kept empty to leave breathing room.
-axD = fig.add_subplot(gs[3,0]); draw_panel(axD, "Defensive", DEFENCE)
+draw_panel(axA, "Attacking",  ATTACK)
+draw_panel(axP, "Possession", POSSESS)
+draw_panel(axD, "Defensive",  DEFENCE)
 
 st.pyplot(fig, use_container_width=True)
 
@@ -1090,8 +1053,8 @@ buf_png, buf_pdf = io.BytesIO(), io.BytesIO()
 fig.savefig(buf_png, format="png", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
 fig.savefig(buf_pdf, format="pdf", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
 c1, c2 = st.columns(2)
-with c1:  st.download_button("⬇️ PNG snapshot", data=buf_png.getvalue(), file_name="snapshot.png", mime="image/png")
-with c2:  st.download_button("⬇️ PDF snapshot", data=buf_pdf.getvalue(), file_name="snapshot.pdf", mime="application/pdf")
+with c1: st.download_button("⬇️ PNG snapshot", data=buf_png.getvalue(), file_name="snapshot.png", mime="image/png")
+with c2: st.download_button("⬇️ PDF snapshot", data=buf_pdf.getvalue(), file_name="snapshot.pdf", mime="application/pdf")
 # ==================== /SNAPSHOT ====================
 
 
