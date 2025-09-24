@@ -1109,9 +1109,9 @@ else:
 
     POSSESSION = []
     for lab, met in [
-        ("Passes/90",       "Passes per 90"),
+        ("Passes",       "Passes per 90"),
         ("Pass %",          "Accurate passes, %"),
-        ("Forward/90",      "Forward passes per 90"),
+        ("Forward Passes",      "Forward passes per 90"),
         ("Forward %",       "Accurate forward passes, %"),
         ("Long/90",         "Long passes per 90"),
         ("Long %",          "Accurate long passes, %"),
@@ -1142,12 +1142,6 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 # ============================ END (E) ONE-PAGER (UPDATED) ============================
-
-
-
-
-
-
 
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
