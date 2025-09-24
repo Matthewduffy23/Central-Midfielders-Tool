@@ -385,27 +385,25 @@ for role, role_def in ROLES.items():
         st.dataframe(top_table(filtered_view(df_f, value_max=v_max), role, int(top_n)), use_container_width=True)
         st.divider()
 
-# ----------------- METRIC LEADERBOARD (pro) -----------------
-import re, numpy as np
-import matplotlib.pyplot as plt
+# ----------------- METRIC LEADERBOARD (clean v2) -----------------
+import re, numpy as np, matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.ticker import FuncFormatter
 
 st.markdown("---")
-st.header("📊 Metric Leaderboard")
 
+# ---- Controls
 with st.expander("Leaderboard settings", expanded=False):
     default_metric = "Progressive runs per 90" if "Progressive runs per 90" in FEATURES else FEATURES[0]
-    metric_pick   = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
-    sort_mode     = st.radio("Order by", ["Actual value", "League percentile"], index=0, horizontal=True)
-    top_n_leader  = st.slider("Show top N", 5, 40, 20, 5)
-    show_team     = st.checkbox("Show team & league in label", True)
-    compact_labels= st.checkbox("Compact player labels", True, help="Initial + surname, trims team/league if needed.")
-    show_value    = st.checkbox("Show numeric value badges", True)
-    show_pct      = st.checkbox("Show percentile chips", True)
-    tight_x       = st.checkbox("Auto-fit x-axis (no big empty tail)", True)
+    metric_pick    = st.selectbox("Metric", FEATURES, index=FEATURES.index(default_metric))
+    sort_mode      = st.radio("Order by", ["Actual value", "League percentile"], horizontal=True, index=0)
+    top_n          = st.slider("Show top N", 5, 40, 20, 5)
+    show_team      = st.checkbox("Show team & league in label", True)
+    compact_names  = st.checkbox("Compact player names", True)
+    show_values    = st.checkbox("Show value badges", True)
+    show_pct       = st.checkbox("Show percentile chips", True)
 
-# ---------- data prep
+# ---- Data
 val_col = metric_pick
 pct_col = f"{metric_pick} Percentile"
 
@@ -415,138 +413,105 @@ plot_df = (
     .copy()
 )
 
-# sort
 sort_key = pct_col if sort_mode == "League percentile" else val_col
-plot_df = plot_df.sort_values(sort_key, ascending=False).head(int(top_n_leader)).reset_index(drop=True)
-
-# helpers
-def shorten_team(s, max_len=18):
-    s = str(s)
-    return s if len(s) <= max_len else s[:max_len-1] + "…"
+plot_df = plot_df.sort_values(sort_key, ascending=False).head(int(top_n)).reset_index(drop=True)
 
 def make_label(r):
     name = r["Player"]
-    if compact_labels:
-        name = re.sub(r"^([A-Z])(\w+)\s+", r"\1. ", name)  # J. Smith
-    if show_team:
-        team = shorten_team(r["Team"], 18)
-        lg   = r["League"]
-        return f"{name} — {team} ({lg})"
-    return name
+    if compact_names:
+        name = re.sub(r"^([A-Z])(\w+)\s+", r"\1. ", name)   # "John Smith" -> "J. Smith"
+    if not show_team:
+        return name
+    team = r["Team"] if len(str(r["Team"])) <= 18 else str(r["Team"])[:17] + "…"
+    return f"{name} — {team} ({r['League']})"
 
 y_labels = plot_df.apply(make_label, axis=1)
 
-# optional: highlight a selected player if defined upstream
+# Optional highlight
 highlight_ix = None
 if 'player_name' in globals() and isinstance(player_name, str):
     hits = np.where(plot_df["Player"].values == player_name)[0]
     highlight_ix = int(hits[0]) if len(hits) else None
 
-# ---------- styling & colors (no traffic-light palette)
-# Colorblind-safe, elegant violet→blue→teal ramp (perceptually uniform)
-cmap = LinearSegmentedColormap.from_list(
-    "violet_teal",
-    ["#4c1d95", "#2a3f9d", "#2463eb", "#1fa3a8", "#10b981"]
-)
+# ---- Colors (no traffic light)
+cmap = LinearSegmentedColormap.from_list("violet_teal",
+    ["#4c1d95", "#2a3f9d", "#2463eb", "#1fa3a8", "#10b981"])
 norm   = Normalize(vmin=0, vmax=100)
 colors = [cmap(norm(p)) for p in plot_df[pct_col].values]
 
-# ---------- figure
-fig_w, fig_h, dpi = 11.5, 7.6, 220
-fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
-fig.patch.set_facecolor("#f8fafc")  # page
-ax.set_facecolor("#ffffff")         # plot
+# ---- Figure
+fig, ax = plt.subplots(figsize=(11, 6.6), dpi=170)
+fig.patch.set_facecolor("#f8fafc")
+ax.set_facecolor("white")
 
-# alternating row bands (ultra subtle)
+# Title (left-aligned, no overlap) + subtitle
+title = f"Top {len(plot_df)} • {metric_pick}"
+subtitle = f"Ordered by {'league percentile' if sort_key==pct_col else 'actual value'}. Filters applied."
+fig.text(0.06, 0.97, title, fontsize=16, fontweight="bold", color="#0f172a", va="top")
+fig.text(0.06, 0.94, subtitle, fontsize=10.5, color="#475569", va="top")
+plt.subplots_adjust(top=0.86, left=0.24, right=0.94, bottom=0.08)
+
+# Alternating bands
 for i in range(len(plot_df)):
     if i % 2 == 1:
         ax.axhspan(i-0.5, i+0.5, color="#f4f6fb", zorder=0)
 
-# bars
-bars = ax.barh(range(len(plot_df)), plot_df[val_col].values,
-               color=colors, edgecolor="#0f172a", linewidth=0.6, zorder=2)
+# Bars
+x_vals = plot_df[val_col].values
+bars = ax.barh(range(len(plot_df)), x_vals, color=colors, edgecolor="#0f172a", linewidth=0.5, zorder=2)
 
-# y labels with rank number for quick scanning
-ax.set_yticks(range(len(plot_df)))
-ranked_labels = [f"{i+1:>2}.  {lbl}" for i, lbl in enumerate(y_labels)]
-ax.set_yticklabels(ranked_labels, fontsize=9.5, color="#0f172a")
-
-# x axis formatting
-def smart_fmt(x, _):
-    # compact formatter: integers keep 0 dp, small floats 2 dp
-    if abs(x) >= 1000:
-        return f"{x:,.0f}"
-    return f"{x:.2f}" if not float(x).is_integer() else f"{x:.0f}"
-
-ax.xaxis.set_major_formatter(FuncFormatter(smart_fmt))
-ax.tick_params(axis="x", labelsize=9, colors="#334155")
-
-# grid and frame
-ax.grid(axis="x", color="#e5e7eb", linewidth=0.8, zorder=1)
-for s in ["top","right"]:
-    ax.spines[s].set_visible(False)
-for s in ["left","bottom"]:
-    ax.spines[s].set_color("#cbd5e1")
-
-# keep biggest on top
+# Axes
 ax.invert_yaxis()
+ax.set_yticks(range(len(plot_df)))
+ax.set_yticklabels([f"{i+1:>2}.  {lbl}" for i, lbl in enumerate(y_labels)], fontsize=9.5, color="#0f172a")
+ax.set_xlabel(val_col, color="#0f172a", fontweight="bold", labelpad=6)
 ax.set_ylabel("")
-ax.set_xlabel(val_col, labelpad=6, fontweight="bold", color="#0f172a")
+ax.grid(axis="x", color="#e5e7eb", linewidth=0.8, zorder=1)
+ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+ax.spines["left"].set_color("#cbd5e1"); ax.spines["bottom"].set_color("#cbd5e1")
 
-# optional fit xlim to data
-if tight_x:
-    x_max = float(np.nanmax(plot_df[val_col].values))
-    ax.set_xlim(0, x_max * 1.06)
+# Neat tick formatting + tight xlim
+def smart_fmt(x, _):
+    return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
+ax.xaxis.set_major_formatter(FuncFormatter(smart_fmt))
+xmax = float(np.nanmax(x_vals)) if len(x_vals) else 1.0
+ax.set_xlim(0, xmax * 1.06)
 
-# value badges
-if show_value:
-    x0, x1 = ax.get_xlim()
-    pad = (x1 - x0) * 0.01
-    for i, (rect, val) in enumerate(zip(bars, plot_df[val_col].values)):
-        ax.text(rect.get_width() + pad, rect.get_y() + rect.get_height()/2,
-                smart_fmt(val, None),
-                va="center", ha="left", fontsize=9.5, color="#0f172a",
-                bbox=dict(boxstyle="round,pad=0.22",
-                          fc="#eef2ff", ec="#c7d2fe", lw=0.8, alpha=0.98))
+# Value badges (inside bar if space, else just outside)
+if show_values:
+    for rect, val in zip(bars, x_vals):
+        x = rect.get_width()
+        y = rect.get_y() + rect.get_height()/2
+        label = smart_fmt(val, None)
+        inside = x >= xmax * 0.14
+        ax.text(
+            x - (xmax * 0.007) if inside else x + (xmax * 0.007), y, label,
+            va="center", ha="right" if inside else "left",
+            fontsize=9.5, color="white" if inside else "#0f172a",
+            bbox=dict(boxstyle="round,pad=0.22",
+                      fc="#0f172a" if inside else "#eef2ff",
+                      ec="#0f172a" if inside else "#c7d2fe",
+                      lw=0.8, alpha=0.98)
+        )
 
-# percentile chips (right margin, consistent alignment)
+# Percentile chips (aligned gutter at far right, no overlap)
 if show_pct:
-    x_max = ax.get_xlim()[1]
+    gutter_x = ax.get_xlim()[1] * 0.995
     for i, p in enumerate(plot_df[pct_col].values):
         chip = f"{int(round(p))}ᵗʰ pct"
-        ax.text(x_max, i, chip, va="center", ha="right", fontsize=9, color="#0f172a",
-                bbox=dict(boxstyle="round,pad=0.20", fc="#ecfeff", ec="#06b6d4", lw=0.8, alpha=0.98))
+        ax.text(gutter_x, i, chip, va="center", ha="right", fontsize=9, color="#0f172a",
+                bbox=dict(boxstyle="round,pad=0.18", fc="#ecfeff", ec="#06b6d4", lw=0.8, alpha=0.98),
+                clip_on=False)
 
-# highlight selected player row (tasteful, not screaming)
+# Highlight (subtle)
 if highlight_ix is not None:
-    ax.axhspan(highlight_ix-0.5, highlight_ix+0.5,
-               color="#fff7ed", zorder=0.5)  # warm glow
+    ax.axhspan(highlight_ix-0.5, highlight_ix+0.5, color="#fff7ed", zorder=0.5)
     ax.text(ax.get_xlim()[0], highlight_ix, "◆", va="center", ha="left",
             color="#f97316", fontsize=10, fontweight="bold")
 
-# title & subtitle
-ttl_metric  = metric_pick
-ttl_sorted  = "league percentile" if sort_key == pct_col else "actual value"
-fig.suptitle(
-    f"Top {len(plot_df)} • {ttl_metric}",
-    x=0.06, y=0.965, ha="left", fontsize=17, fontweight="bold", color="#0f172a"
-)
-fig.text(
-    0.06, 0.942,
-    f"Ordered by {ttl_sorted}. Color encodes percentile (0–100). Sidebar filters applied.",
-    fontsize=10.4, color="#475569", ha="left"
-)
-
-# compact colorbar (explains color without clutter)
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="0.35%", pad=0.25)
-cb  = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
-cb.set_label("Percentile", rotation=270, labelpad=10, color="#334155", fontsize=9)
-cb.ax.tick_params(labelsize=8, colors="#334155")
-
 st.pyplot(fig, use_container_width=True)
-# ----------------- END METRIC LEADERBOARD (pro) -----------------
+# ----------------- END METRIC LEADERBOARD (clean v2) -----------------
+
 
 
 
