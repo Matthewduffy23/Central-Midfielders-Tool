@@ -665,7 +665,7 @@ EXTRA_METRICS = [
 STYLE_MAP = {
     'Defensive duels per 90': {
         'style': 'Ball Winner',
-        'sw': 'Defensive Duels',
+        'sw': 'Defensive Duel Attempts',
     },
     'Aerial duels won, %': {
         'style': None,
@@ -713,7 +713,7 @@ STYLE_MAP = {
     },
     'Passes per 90': {
         'style': 'Involved in build-up',
-        'sw': 'Involvement',
+        'sw': 'Passing Involvement',
     },
     'Accurate passes, %': {
         'style': 'Controller',
