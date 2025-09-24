@@ -941,8 +941,8 @@ else:
 
         ax.set_xlim(0, 100)
         ax.set_yticks(y)
-        ax.set_yticklabels(labels, color="#CBD5E1", fontsize=9, fontweight="bold")
-        ax.tick_params(axis="x", colors="#94A3B8", labelsize=8)
+        ax.set_yticklabels(labels, color="#CBD5E1", fontsize=6, fontweight="bold")
+        ax.tick_params(axis="x", colors="#94A3B8", labelsize=5)
         ax.grid(axis="x", color="#1F2937", linewidth=1.0, zorder=1)
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.set_xlabel(""); ax.set_ylabel("")
@@ -979,7 +979,7 @@ else:
         fig.text(0.03, 0.955, f"{player_name}", fontsize=18, color="#F8FAFC", fontweight="800", va="top")
 
     meta = f"{pos} — {team} — {league} — Age {age if age else '—'} — Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — Goals {goals} — xG/90 {xg90} — Assists {assists}"
-    fig.text(0.03, 0.928, meta, color="#93C5FD", fontsize=9)
+    fig.text(0.03, 0.928, meta, color="#93C5FD", fontsize=7)
 
     # chips
     y = 0.89
@@ -1000,10 +1000,10 @@ else:
                                           transform=fig.transFigure,
                                           facecolor="#E5E7EB", edgecolor="none")
             fig.patches.append(box)
-            fig.text(x+0.012, y_roles-0.005, txt, fontsize=9.5, color="#0B1220", va="center", ha="left", weight="700")
+            fig.text(x+0.012, y_roles-0.005, txt, fontsize=7, color="#0B1220", va="center", ha="left", weight="700")
             col = div_color(v); rgb = (int(255*col[0]), int(255*col[1]), int(255*col[2]))
             fig.text(x+w-0.015, y_roles-0.005, f"{int(round(v))}",
-                     fontsize=9.5, color=f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}", va="center", ha="right", weight="800")
+                     fontsize=7, color=f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}", va="center", ha="right", weight="800")
             x += w+0.01
 
     # bar panels
