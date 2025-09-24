@@ -1172,7 +1172,7 @@ else:
 
     # ----------------- panel sizing for UNIFORM ROW HEIGHT -----------------
     # Each row gets the same figure-fraction height, regardless of panel.
-    ROW_H = 0.028      # tweak to make all rows taller/shorter together
+    ROW_H = 0.022      # tweak to make all rows taller/shorter together
     HEADER_PAD = 0.06  # title + breathing space per panel
     PANEL_GAP = 0.035  # vertical gap between stacked panels (left column)
 
