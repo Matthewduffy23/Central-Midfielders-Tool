@@ -519,6 +519,7 @@ st.pyplot(fig, use_container_width=True)
 
 
 
+
 # ----------------- SINGLE PLAYER ROLE PROFILE (REPLACED) -----------------
 st.subheader("🎯 Single Player Role Profile")
 player_name = st.selectbox("Choose player", sorted(df_f["Player"].unique()))
