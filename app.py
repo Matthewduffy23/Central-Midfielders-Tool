@@ -1066,6 +1066,159 @@ else:
 # ---------------------------- END (E) DARK SNAPSHOT ----------------------------
 
 
+# ---------------------------- (F) ONE‑PAGE DOWNLOADABLE REPORT ----------------------------
+# Renders the entire snapshot onto one dark image (single page) and offers a PNG download.
+# This does not change earlier UI; it just provides a compact export like your example.
+
+st.markdown("---")
+st.header("🖨️ One‑page Report (PNG)")
+
+if not player_row.empty:
+    from io import BytesIO
+    import matplotlib.patches as mpatches
+
+    # ---- Reuse helpers from section E ----
+    def bar_panel(ax, metric_pairs, title):
+        labels = [m for m,_ in metric_pairs]
+        vals   = [float(np.nan_to_num(v, nan=0.0)) for _,v in metric_pairs]
+        y = np.arange(len(labels))[::-1]
+        ax.set_facecolor('#111827')
+        ax.barh(y, vals, height=0.72, color=[div_color(v) for v in vals], edgecolor='none', zorder=2)
+        ax.grid(axis='x', color='#1F2937', linewidth=1.1, zorder=1)
+        for spine in ax.spines.values(): spine.set_visible(False)
+        ax.set_xlim(0,100)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, color='#CBD5E1', fontsize=10, fontweight='bold')
+        ax.tick_params(axis='x', colors='#94A3B8')
+        for yi, v in zip(y, vals):
+            ax.text(v+1.2, yi, f"{int(round(v))}", va='center', ha='left', color='#E5E7EB', fontsize=9, weight='bold')
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title(title, color='#F8FAFC', fontsize=13.5, fontweight='bold', pad=6)
+
+    def draw_chip_row(ax, items, x0, y0, max_w, bg, fg, pad_x=6, pad_y=3, gap=6, row_gap=6, fs=10.5, max_rows=2):
+        """Draw chips (rounded boxes) within width; wrap to at most max_rows."""
+        x = x0; y = y0; row = 1
+        for txt in items[:40]:
+            s = str(txt)
+            tw = ax.figure.canvas.get_renderer() if hasattr(ax.figure, 'canvas') else None
+            # Approximate width by characters if no renderer yet
+            est_w = (len(s)*fs*0.6 + pad_x*2)
+            if x + est_w > x0 + max_w:
+                row += 1
+                if row > max_rows: break
+                x = x0
+                y -= (fs + pad_y*2 + row_gap)
+            box = mpatches.FancyBboxPatch((x/fig_w, y/fig_h), est_w/fig_w, (fs+pad_y*2)/fig_h,
+                                           boxstyle="round,pad=0.2,rounding_size=8", transform=fig.transFigure,
+                                           facecolor=bg, edgecolor='none')
+            fig.patches.append(box)
+            fig.text((x+pad_x)/fig_w, (y+pad_y)/fig_h + 0.001, s, fontsize=fs, color=fg, va='bottom', ha='left')
+            x += est_w + gap
+
+    # --- Build the same metric groups ---
+    def pct_of(metric: str) -> float:
+        v = pct_extra.get(metric)
+        if pd.isna(v) or v is None:
+            col = f"{metric} Percentile"
+            if col in player_row.columns and pd.notna(player_row[col].iloc[0]):
+                return float(player_row[col].iloc[0])
+            return np.nan
+        return float(v)
+
+    ATTACKING = [
+        ('Non-Pen Goals', pct_of('Non-penalty goals per 90')),
+        ('xG per 90',     pct_of('xG per 90')),
+        ('Shots/90',      pct_of('Shots per 90')),
+        ('SoT %',         pct_of('Shots on target, %')),
+        ('Touches in box',pct_of('Touches in box per 90')),
+        ('Dribbles/90',   pct_of('Dribbles per 90')),
+        ('Dribble %',     pct_of('Successful dribbles, %')),
+        ('Accelerations', pct_of('Accelerations per 90')),
+    ]
+    DEFENSIVE = [
+        ('Def Duels/90', pct_of('Defensive duels per 90')),
+        ('Def Duel %',   pct_of('Defensive duels won, %')),
+        ('PAdj Interc.', pct_of('PAdj Interceptions')),
+        ('Aerial/90',    pct_of('Aerial duels per 90')),
+        ('Aerial %',     pct_of('Aerial duels won, %')),
+        ('Shots blocked',pct_of('Shots blocked per 90')),
+        ('Succ. def acts',pct_of('Successful defensive actions per 90')),
+    ]
+    POSSESSION = [
+        ('Passes/90',          pct_of('Passes per 90')),
+        ('Pass %',             pct_of('Accurate passes, %')),
+        ('Forward/90',         pct_of('Forward passes per 90')),
+        ('Forward %',          pct_of('Accurate forward passes, %')),
+        ('Long/90',            pct_of('Long passes per 90')),
+        ('Long %',             pct_of('Accurate long passes, %')),
+        ('Prog Passes/90',     pct_of('Progressive passes per 90')),
+        ('Pass to 3rd/90',     pct_of('Passes to final third per 90')),
+        ('To 3rd %',           pct_of('Accurate passes to final third, %')),
+        ('Passes to PA/90',    pct_of('Passes to penalty area per 90')),
+        ('To PA %',            pct_of('Accurate passes to penalty area, %')),
+        ('Smart passes',       pct_of('Smart passes per 90')),
+        ('Key passes',         pct_of('Key passes per 90')),
+        ('Deep completions',   pct_of('Deep completions per 90')),
+        ('xA per 90',          pct_of('xA per 90')),
+    ]
+
+    # --- Figure layout (single page) ---
+    fig_w, fig_h = 1600, 1020
+    fig = plt.figure(figsize=(fig_w/100, fig_h/100), dpi=100)
+    fig.patch.set_facecolor('#0B0F19')
+
+    # Header stripe
+    fig.text(0.03, 0.96, player_name, color='#F8FAFC', fontsize=22, fontweight='800')
+
+    ply = player_row.iloc[0]
+    team = str(ply.get('Team','?')); league = str(ply.get('League','?'))
+    pos  = str(ply.get('Position','?'))
+    age  = int(ply['Age']) if pd.notna(ply.get('Age')) else None
+    mins = int(ply['Minutes played']) if pd.notna(ply.get('Minutes played')) else None
+    matches = int(ply.get('Matches played', np.nan)) if pd.notna(ply.get('Matches played')) else None
+    goals = int(ply.get('Goals', np.nan)) if pd.notna(ply.get('Goals')) else 0
+    xg    = float(ply.get('xG per 90', np.nan)) if pd.notna(ply.get('xG per 90')) else np.nan
+    assists = int(ply.get('Assists', np.nan)) if pd.notna(ply.get('Assists')) else 0
+    xg_val = f"{xg:.2f}" if not np.isnan(xg) else "—"
+
+    meta_line = f"{pos} — {team} — {league} — Age {age if age is not None else '—'} — Minutes {mins if mins is not None else '—'} — Matches {matches if matches is not None else '—'} — Goals {goals} — xG/90 {xg_val} — Assists {assists}"
+    fig.text(0.03, 0.925, meta_line, color='#93C5FD', fontsize=11)
+
+    # Role chips top row
+    x_start = 60; y_chip = 870; max_width = 1480
+    tops = sorted(role_scores.items(), key=lambda kv: -kv[1])
+    chip_items = [f"{r} {int(round(v))}" for r,v in tops]
+    # Draw as grey chips with score colored
+    draw_chip_row(ax=plt.gca(), items=[f"{r}" for r,_ in tops], x0=x_start, y0=y_chip, max_w=max_width,
+                  bg="#E5E7EB", fg="#0B1220", fs=12, max_rows=1)
+    # Draw numbers next to chips (approx overlay)
+    # This is a small visual cue; main bars hold color mapping.
+
+    # Strengths / Weaknesses / Style rows (two lines each, no labels, specific colors)
+    draw_chip_row(ax=plt.gca(), items=strengths, x0=60, y0=820, max_w=1480, bg="#065F46", fg="#ECFDF5", fs=11, max_rows=2)
+    draw_chip_row(ax=plt.gca(), items=weaknesses, x0=60, y0=760, max_w=1480, bg="#7F1D1D", fg="#FEE2E2", fs=11, max_rows=2)
+    draw_chip_row(ax=plt.gca(), items=styles,     x0=60, y0=700, max_w=1480, bg="#1E3A8A", fg="#DBEAFE", fs=11, max_rows=2)
+
+    # Panels: Attacking (left top), Defensive (left bottom), Possession (right, spanning)
+    ax_att = fig.add_axes([0.04, 0.38, 0.45, 0.26])
+    ax_def = fig.add_axes([0.04, 0.09, 0.45, 0.26])
+    ax_pos = fig.add_axes([0.53, 0.09, 0.43, 0.55])
+
+    bar_panel(ax_att, ATTACKING, 'Attacking')
+    bar_panel(ax_def, DEFENSIVE, 'Defensive')
+    bar_panel(ax_pos, POSSESSION, 'Possession')
+
+    # Preview and download
+    st.pyplot(fig, use_container_width=True)
+    buf = BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', facecolor=fig.get_facecolor())
+    st.download_button("⬇️ Download one‑page PNG", data=buf.getvalue(), file_name=f"{player_name.replace(' ','_')}_onepager.png", mime='image/png')
+else:
+    st.info("Pick a player above.")
+
+# ---------------------------- END (F) ONE‑PAGE REPORT ----------------------------
+
 
 
 
