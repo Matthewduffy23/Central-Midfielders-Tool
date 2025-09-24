@@ -872,53 +872,27 @@ st.dataframe(styled, use_container_width=True)
 # =====================================================================
 
 # ----------------------------------------------------------------------
-# ----------------------- (E) Percentile Bars Board --------------------
+# --------------- (E2) One-pager: compact percentile board -------------
 # ----------------------------------------------------------------------
 st.markdown("---")
-st.header("📊 Percentile Bars — Full Feature Profile (Replica)")
+st.header("🖨️ One-pager — Compact Percentile Profile")
 
-# ---------- Controls ----------
-with st.expander("Percentile-bar settings", expanded=False):
-    target_line = st.radio("Target line", ["50th", "75th", "None"], horizontal=True, index=0)
-    show_values = st.checkbox("Show actual values on the right", True)
-    round_vals  = st.selectbox("Round value labels to", [0, 1, 2], index=1)
+# Controls
+with st.expander("One-pager settings", expanded=False):
+    show_target = st.checkbox("Show 50th percentile target line", True)
+    round_vals  = st.selectbox("Round actual values to", [0, 1, 2], index=1)
 
-# ---------- CSS (clone-ish look) ----------
-st.markdown("""
-<style>
-.block-container {padding-top: .8rem;}
-
-/* Left profile card */
-.profile-card {background:#262626; color:#f3f3f3; border-radius:14px; padding:22px;}
-.profile-title {font-size:1.4rem; font-weight:700; margin-bottom:6px;}
-.profile-sub {color:#d1d5db; margin-bottom:14px;}
-
-/* badges */
-.stat-badges {display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 16px;}
-.badge {background:#16a34a; color:#fff; padding:3px 8px; border-radius:8px; font-size:.85rem; font-weight:700;}
-.badge-dark {background:#0ea5e9; color:#fff; padding:3px 8px; border-radius:8px; font-size:.85rem; font-weight:700;}
-
-/* chips */
-.section-label {margin-top:10px; color:#cfcfcf; text-transform:uppercase; letter-spacing:.04em; font-size:.9rem;}
-.chips {display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 10px;}
-.chip-blue  {background:#60a5fa22; color:#bfdbfe; border:1px solid #60a5fa55; padding:3px 8px; border-radius:999px; font-size:.85rem;}
-.chip-green {background:#16a34a22; color:#a7f3d0; border:1px solid #16a34a55; padding:3px 8px; border-radius:999px; font-size:.85rem;}
-.chip-red   {background:#ef444422; color:#fecaca; border:1px solid #ef444455; padding:3px 8px; border-radius:999px; font-size:.85rem;}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- Require a player + pool ----------
 if player_row.empty:
-    st.info("Pick a player above to render the percentile bars.")
+    st.info("Pick a player above.")
     st.stop()
 
 ply = player_row.iloc[0]
 pool_df = build_pool_df()
 if pool_df.empty:
-    st.warning("Comparison pool is empty. Add at least one league in the profile controls above.")
+    st.warning("Comparison pool empty. Add at least one league above.")
     st.stop()
 
-# ---------- Percentiles for ALL FEATURES within pool ----------
+# ---- Compute pool-based percentiles for all FEATURES (fixed order; no sorting) ----
 def series_percentile(series, val):
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty or pd.isna(val): return np.nan
@@ -929,172 +903,167 @@ def series_percentile(series, val):
 feat_cols = [f for f in FEATURES if f in pool_df.columns]
 for f in feat_cols:
     pool_df[f] = pd.to_numeric(pool_df[f], errors="coerce")
+
 pct_map_all = {f: series_percentile(pool_df[f], ply.get(f)) for f in feat_cols}
 
-# ---------- Grouping (cover all; leftovers → Additional) ----------
-GROUPS = {
-    "Attacking Play": [
-        "Non-penalty goals per 90","xG per 90","Shots per 90","Shots on target, %",
-        "Touches in box per 90","Offensive duels per 90","Offensive duels won, %",
-        "Dribbles per 90","Successful dribbles, %","Accelerations per 90","Progressive runs per 90",
-        "Deep completions per 90"
-    ],
-    "Passing & Creativity": [
-        "xA per 90","Smart passes per 90","Key passes per 90",
-        "Passes to final third per 90","Accurate passes to final third, %",
-        "Passes to penalty area per 90","Accurate passes to penalty area, %",
-        "Progressive passes per 90","Accurate progressive passes, %",
-        "Passes per 90","Accurate passes, %","Forward passes per 90","Accurate forward passes, %",
-        "Long passes per 90","Accurate long passes, %"
-    ],
-    "Defensive Performance": [
-        "Successful defensive actions per 90","Defensive duels per 90","Defensive duels won, %",
-        "Aerial duels per 90","Aerial duels won, %","Shots blocked per 90","PAdj Interceptions"
-    ],
-    "Passing Style": [
-        # keep light; the core metrics already above
-        "Avg Pass length, m" if "Avg Pass length, m" in pool_df.columns else None,
-        "Avg long Pass length m" if "Avg long Pass length m" in pool_df.columns else None,
-        "Sh M Pass ratio" if "Sh M Pass ratio" in pool_df.columns else None,
-        "Long Pass ratio" if "Long Pass ratio" in pool_df.columns else None,
-        "Forward Pass ratio" if "Forward Pass ratio" in pool_df.columns else None,
-        "Cross to Pass ratio" if "Cross to Pass ratio" in pool_df.columns else None,
-    ],
-}
-# strip None entries
-GROUPS["Passing Style"] = [x for x in GROUPS["Passing Style"] if x]
+# ---- Groups (fixed order; not sorted high→low) ----
+G_ATTACK = [
+    "Touches in box per 90","Offensive duels per 90","Accelerations per 90","Dribbles per 90",
+    "Progressive runs per 90","Deep completions per 90","xG per 90","Shots per 90",
+    "Offensive duels won, %","Successful dribbles, %","Shots on target, %","Non-penalty goals per 90",
+]
+G_PASS = [
+    "Accurate progressive passes, %","Passes to penalty area per 90","Key passes per 90","xA per 90",
+    "Long passes per 90","Passes to final third per 90","Accurate long passes, %","Forward passes per 90",
+    "Progressive passes per 90","Passes per 90","Smart passes per 90",
+]
+G_DEF = [
+    "PAdj Interceptions","Fouls" if "Fouls" in feat_cols else None,
+    "Defensive duels per 90","Defensive duels won, %","Aerial duels per 90",
+    "Aerial duels won, %","Successful defensive actions per 90","Shots blocked per 90"
+]
+G_DEF = [x for x in G_DEF if x]
 
-assigned = set(sum(GROUPS.values(), []))
-leftovers = [f for f in feat_cols if f not in assigned]
-if leftovers:
-    GROUPS["Additional"] = leftovers
+GROUPS = [
+    ("Attacking Play", G_ATTACK),
+    ("Passing & Creativity", G_PASS),
+    ("Defensive Performance", G_DEF),
+]
 
-# ---------- Helpers ----------
-def chips_html(items, cls):
-    if not items: return "<span style='opacity:.6'>None.</span>"
-    spans = [f"<span class='{cls}'>{st.text(j)}</span>".replace("<span", f"<span class='{cls}'") for j in items[:12]]
-    # The st.text() call sanitizes; but we only need content, so strip outer divs
-    return " ".join([f"<span class='{cls}'>{j}</span>" for j in items[:12]])
-
-def short_label(s: str) -> str:
-    s = s.replace("Non-penalty goals per 90","NP Goals/90")
-    s = s.replace(" per 90","/90")
-    s = s.replace("Accurate ","Acc ")
-    s = s.replace("Passes to penalty area","Passes to Pen Area")
-    s = s.replace("Accurate passes to penalty area, %","Acc to Pen Area %")
-    s = s.replace("Accurate passes to final third, %","Acc to Final 3rd %")
+# ---- Styling helpers ----
+def shorten(s: str) -> str:
+    s = s.replace(" per 90","/90").replace("per 90","/90")
+    s = s.replace("Non-penalty goals","NP Goals").replace("Shots on target, %","SoT %")
+    s = s.replace("Accurate ","Acc ").replace("Passes to penalty area","Passes to Pen Area")
     s = s.replace("Accurate progressive passes, %","Acc Prog Pass %")
-    s = s.replace("Shots on target, %","SoT %")
+    s = s.replace("Accurate long passes, %","Acc Long Pass %")
+    s = s.replace("Accurate forward passes, %","Acc Fwd Pass %")
+    s = s.replace("Accurate passes to final third, %","Acc to Final 3rd %")
     return s
 
-# **Color ramp**: brown (low) → gold (mid) → green (high). High = bright green.
+# Color ramp: brown → gold → green (tight, readable)
 from matplotlib.colors import LinearSegmentedColormap
-RAMP = LinearSegmentedColormap.from_list(
-    "brown_gold_green",
-    ["#9a6b16",  # brown/ochre
-     "#f1c232",  # gold
-     "#22c55e"]  # green
-)
+RAMP = LinearSegmentedColormap.from_list("brown_gold_green", ["#9a6b16","#f2c94c","#22c55e"])
 
-def draw_group(title: str, items: list[str]):
-    # keep only metrics with a percentile
-    items = [m for m in items if m in pct_map_all and pd.notna(pct_map_all[m])]
-    if not items:
-        return
+# ---- Build one-pager figure ----
+import io
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
 
-    rows = []
-    for m in items:
+W, H, DPI = 11.8, 8.3, 260  # ~A4 landscape in inches
+fig = plt.figure(figsize=(W, H), dpi=DPI)
+fig.patch.set_facecolor("#f3f4f6")
+gs = gridspec.GridSpec(nrows=3, ncols=4, figure=fig, height_ratios=[1,1,1], width_ratios=[1.1,1,1,1], wspace=0.25, hspace=0.34)
+
+# Left profile card (spans all rows, col 0)
+ax_left = fig.add_subplot(gs[:, 0])
+ax_left.axis("off")
+# card background
+from matplotlib.patches import FancyBboxPatch
+card = FancyBboxPatch((0.02, 0.02), 0.96, 0.96, boxstyle="round,pad=0.02,rounding_size=0.06",
+                      transform=ax_left.transAxes, facecolor="#262626", edgecolor="none")
+ax_left.add_patch(card)
+
+# Brighter chips
+def chip(ax, x, y, text, fc, ec="none", tc="#0b1220"):
+    ax.text(x, y, text, transform=ax.transAxes,
+            fontsize=8.6, color=tc, ha="left", va="center",
+            bbox=dict(boxstyle="round,pad=0.25", fc=fc, ec=ec))
+
+# Profile texts
+ax_left.text(0.08, 0.90, str(ply.get("Player", "")), color="#f3f4f3", fontsize=16, fontweight="bold", transform=ax_left.transAxes)
+ax_left.text(0.08, 0.855, f"{ply.get('Team','?')} • {ply.get('League','?')}", color="#d1d5db", fontsize=10.5, transform=ax_left.transAxes)
+
+# badges
+chip(ax_left, 0.08, 0.80, f"Minutes {int(ply.get('Minutes played',0)):,}", fc="#22c55e")
+chip(ax_left, 0.36, 0.80, f"Age {int(ply.get('Age',0))}", fc="#22c55e")
+chip(ax_left, 0.56, 0.80, f"Value €{float(ply.get('Market value',0)):.0f}", fc="#38bdf8", tc="#0b1220")
+
+# STYLE / STRENGTH / WEAKNESS chips (brighter)
+def draw_chip_list(ax, y_start, title, items, color):
+    ax.text(0.08, y_start, title, color="#cfcfcf", fontsize=9.5, transform=ax.transAxes)
+    x, y = 0.08, y_start - 0.05
+    for t in items[:12]:
+        txt = FancyBboxPatch((x, y), 0.001, 0.001, transform=ax.transAxes)  # placeholder for spacing calc
+        ax.add_patch(txt);  # not used; keep for balance
+        ax.text(x, y, t, transform=ax.transAxes, fontsize=8.6, color="#0b1220",
+                bbox=dict(boxstyle="round,pad=0.25", fc=color, ec="none"))
+        x += 0.30
+        if x > 0.78:
+            x = 0.08; y -= 0.06
+
+draw_chip_list(ax_left, 0.73, "STYLE", styles or ["—"], "#93c5fd")
+draw_chip_list(ax_left, 0.53, "STRENGTHS", strengths or ["—"], "#6ee7b7")
+draw_chip_list(ax_left, 0.33, "WEAKNESSES", weaknesses or ["—"], "#fca5a5")
+
+# ----- Three right-hand panels (Attacking, Passing, Defensive)
+def draw_group_panel(fig, gs_slot, title, metrics):
+    ax = fig.add_subplot(gs_slot)
+    ax.set_facecolor("#ffffff")
+    # panel bg soft rounded look
+    rect = FancyBboxPatch((0.01, 0.02), 0.98, 0.96, boxstyle="round,pad=0.02,rounding_size=0.03",
+                          transform=ax.transAxes, facecolor="#ffffff", edgecolor="#e5e7eb")
+    ax.add_patch(rect)
+    ax.set_xlim(0, 100); ax.set_ylim(-0.5, len(metrics) - 0.5)
+    ax.axis("off")
+
+    # title
+    ax.text(0.03, 0.96, title, transform=ax.transAxes, fontsize=12.5, fontweight="bold", color="#111827", va="top")
+
+    # layout constants
+    bar_h = 0.46                 # uniform bar height
+    ystep = 0.85                 # tight spacing
+    y0 = len(metrics) - 1        # top row index
+    # gridline every 10
+    for x in range(0, 101, 10):
+        ax.plot([x, x], [-0.6, len(metrics)-0.4], color="#e6e8ec", lw=0.6, zorder=0)
+
+    if show_target:
+        ax.plot([50, 50], [-0.6, len(metrics)-0.4], color="#7b7f86", ls="--", lw=1.0, zorder=0.5)
+
+    for i, m in enumerate(metrics):
+        if m not in pct_map_all or pd.isna(pct_map_all[m]): 
+            continue
         pct = float(pct_map_all[m])
         val = ply.get(m)
-        rows.append((short_label(m), pct, val))
+        y = y0 - i*ystep
 
-    rows.sort(key=lambda t: t[1], reverse=True)
-    labels = [r[0] for r in rows]
-    pcts   = [r[1] for r in rows]
-    vals   = [r[2] for r in rows]
+        # track
+        ax.barh(y, 100, height=bar_h, left=0, color="#eeeeee", edgecolor="none", zorder=1)
+        # bar fill
+        ax.barh(y, pct, height=bar_h, left=0, color=RAMP(pct/100.0), edgecolor="none", zorder=2)
 
-    # figure
-    fig_h = 3.6 + 0.14*len(rows)
-    fig, ax = plt.subplots(figsize=(9.4, fig_h), dpi=220)
-    page = "#f3f4f6"
-    fig.patch.set_facecolor(page)
-    ax.set_facecolor(page)
+        # left label (smaller)
+        ax.text(-2.0, y, shorten(m), ha="right", va="center", fontsize=8.8, color="#111827")
 
-    y = np.arange(len(rows))
-    # light track to the right length (0–100)
-    ax.barh(y, [100]*len(rows), color="#e6e7ea", edgecolor="none", height=0.62, zorder=1)
-    # colored bar = percentile
-    colors = [RAMP(p/100.0) for p in pcts]
-    ax.barh(y, pcts, color=colors, edgecolor="none", height=0.62, zorder=2)
+        # value (small black text inside left of bar)
+        if isinstance(val, (int, float, np.floating)):
+            txt = f"{val:.{round_vals}f}"
+        else:
+            txt = str(val) if val is not None else ""
+        ax.text(2.0, y, txt, ha="left", va="center", fontsize=8.0, color="#111827", zorder=3)
 
-    # target line
-    if target_line != "None":
-        t = 50 if target_line == "50th" else 75
-        ax.axvline(t, color="#7b7f86", ls="--", lw=1.15, zorder=3)
+# Grid placement: 2 columns x 3 rows areas for panels
+# Attacking: top-right spanning cols 1-3 row 0
+draw_group_panel(fig, gs[0, 1:4], "Attacking Play", [m for m in G_ATTACK if m in feat_cols])
+# Passing: middle row
+draw_group_panel(fig, gs[1, 1:4], "Passing & Creativity", [m for m in G_PASS if m in feat_cols])
+# Defensive: bottom row
+draw_group_panel(fig, gs[2, 1:4], "Defensive Performance", [m for m in G_DEF if m in feat_cols])
 
-    # labels left
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=10, color="#111827")
-    ax.invert_yaxis()
+# Page header
+fig.text(0.02, 0.985, "Advanced Central Midfielder — Compact Percentile Profile", fontsize=13, fontweight="bold", color="#111827")
+fig.text(0.02, 0.965, f"{ply.get('Player','')} • {ply.get('Team','?')} • {ply.get('League','?')}", fontsize=9.5, color="#6b7280")
 
-    # values right (small, no badge)
-    if show_values:
-        for yi, v in enumerate(vals):
-            if isinstance(v, (int, float, np.floating)):
-                txt = f"{v:.{round_vals}f}"
-            else:
-                txt = str(v)
-            ax.text(103, yi, txt, va="center", ha="left", fontsize=8.6, color="#111827")
+st.pyplot(fig, use_container_width=True)
 
-    # cosmetics
-    ax.set_xlim(0, 115)
-    ax.set_xlabel("Percentile (comparison pool)", fontsize=9.6, color="#111827")
-    ax.set_ylabel("")
-    ax.grid(axis="x", color="#e6e8ec", lw=0.7, zorder=0)
-    ax.tick_params(axis="x", labelsize=9, colors="#374151")
-    ax.tick_params(axis="y", length=0)
-    for s in ["top","right","left"]:
-        ax.spines[s].set_visible(False)
-    ax.spines["bottom"].set_color("#cfd4db")
-
-    fig.text(0.02, 0.99, title, ha="left", va="top", fontsize=12.5, weight="bold", color="#111827")
-    st.pyplot(fig, use_container_width=True)
-
-# ---------- Layout: Left profile + Right groups ----------
-c_left, c_right = st.columns([1, 2.5], gap="large")
-
-with c_left:
-    # Use existing chips() results if present; otherwise plain fallbacks
-    def _chips(items, klass):
-        if not items: return "<span style='opacity:.6'>None.</span>"
-        # pre-coloured via classes defined above
-        cls = {"blue":"chip-blue","green":"chip-green","red":"chip-red"}[klass]
-        return " ".join([f"<span class='{cls}'>{txt}</span>" for txt in items[:12]])
-
-    st.markdown(
-        f"""
-        <div class="profile-card">
-            <div class="profile-title">{player_name}</div>
-            <div class="profile-sub">{ply.get('Team','?')} • {ply.get('League','?')}</div>
-            <div class="stat-badges">
-                <span class="badge">Minutes {int(ply.get('Minutes played',0)):,}</span>
-                <span class="badge">Age {int(ply.get('Age',0))}</span>
-                <span class="badge-dark">Value €{float(ply.get('Market value',0)):.0f}</span>
-            </div>
-            <div class="section-label">Style</div>
-            <div class="chips">{_chips(styles, "blue")}</div>
-            <div class="section-label">Strengths</div>
-            <div class="chips">{_chips(strengths, "green")}</div>
-            <div class="section-label">Weaknesses</div>
-            <div class="chips">{_chips(weaknesses, "red")}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-with c_right:
-    for g_name, g_items in GROUPS.items():
-        draw_group(g_name, g_items)
+# ---- Downloads: PNG + PDF ----
+buf_png, buf_pdf = io.BytesIO(), io.BytesIO()
+fig.savefig(buf_png, format="png", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
+fig.savefig(buf_pdf, format="pdf", dpi=DPI, bbox_inches="tight", facecolor=fig.get_facecolor())
+st.download_button("⬇️ Download one-pager (PNG)", data=buf_png.getvalue(), file_name="one_pager_percentiles.png", mime="image/png")
+st.download_button("⬇️ Download one-pager (PDF)", data=buf_pdf.getvalue(), file_name="one_pager_percentiles.pdf", mime="application/pdf")
 
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
