@@ -877,6 +877,7 @@ st.dataframe(styled, use_container_width=True)
 
 st.markdown("---")
 st.header("🧠 Player Snapshot — dark")
+from html import escape
 
 if player_row.empty:
     st.info("Pick a player above to render the snapshot.")
@@ -902,7 +903,7 @@ else:
         if not items:
             return ""
         chips = "".join(
-            f"<span class='chip' style='background:{bg};color:{text}'>{st.utils.escape_html(x)}</span>"
+            f"<span class='chip' style='background:{bg};color:{text}'>{escape(x)}</span>"
             for x in items[:20]
         )
         return f"<div class='chip-row'>{chips}</div>"
@@ -982,10 +983,10 @@ else:
         f"""
         <div class='darkcard'>
           <div class='topline'>
-            <div class='title'>{st.utils.escape_html(player_name)} <span style='font-weight:600;color:#9CA3AF'>(Top Role Score)</span></div>
+            <div class='title'>{escape(player_name)} <span style='font-weight:600;color:#9CA3AF'>(Top Role Score)</span></div>
             <div class='score-badges'>{score_html}</div>
           </div>
-          <div class='meta'>{st.utils.escape_html(meta_line)}</div>
+          <div class='meta'>{escape(meta_line)}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1000,7 +1001,7 @@ else:
     # ---------- Best Roles list ----------
     role_rows = []
     for r, v in sorted(role_scores.items(), key=lambda kv: -kv[1]):
-        role_rows.append(f"<span class='role-chip'>{st.utils.escape_html(r)} <span class='role-num' style='color:{div_color(v)}'>{int(round(v))}</span></span>")
+        role_rows.append(f"<span class='role-chip'>{escape(r)} <span class='role-num' style='color:{div_color(v)}'>{int(round(v))}</span></span>")
     st.markdown(f"<div class='darkcard'><div class='role-stack'>{''.join(role_rows)}</div></div>", unsafe_allow_html=True)
 
     # ---------- Build 3 bar-panels ----------
@@ -1062,6 +1063,7 @@ else:
         draw_bar_panel('Possession', POSSESSION)
 
 # ---------------------------- END (E) DARK SNAPSHOT ----------------------------
+
 
 
 
