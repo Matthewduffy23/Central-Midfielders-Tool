@@ -871,11 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (UPDATED v5) ============================
-# Changes vs v4:
-# - Style/Strength/Weakness chips: font size reduced by 1 (was 11.1 → now 10.1).
-# - Title (player name) + inline number badge fonts increased by +1 (name 24 → 25; badge 14.8 → 15.8).
-
+# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (UNIFORM BAR THICKNESS v6) ============================
 from io import BytesIO
 import numpy as np
 import matplotlib.pyplot as plt
@@ -893,13 +889,14 @@ else:
     TEXT      = "#E5E7EB"
     ROLE_GREY = "#3A4048"   # medium grey for role chip
 
-    # chip backgrounds (text is white per request)
+    # chip backgrounds (white text on all chips)
     CHIP_G_BG = "#22C55E"   # strengths
     CHIP_R_BG = "#EF4444"   # weaknesses
     CHIP_B_BG = "#60A5FA"   # style
 
     # ----------------- helpers -----------------
     def div_color_tuple(v: float):
+        """0..100 → red→gold→green (RGB 0..1)."""
         if pd.isna(v): return (0.6,0.63,0.66)
         v = float(v)
         if v <= 50:
@@ -926,7 +923,7 @@ else:
         t.remove()
         return h_px / fig.bbox.height
 
-    # ultra-tight chips (bg fits text exactly) — font reduced by 1 vs v4
+    # ultra-tight chips (bg fits text exactly) — fs=10.1 per your last tweak
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
@@ -1016,25 +1013,43 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # bar panel: keep v4 thickness/gap
+    # ----------------- UNIFORM BAR THICKNESS PANEL -----------------
+    # We make bar thickness constant in pixels by:
+    # 1) Keeping bar height as a constant FRACTION of one row unit, and
+    # 2) Scaling each panel's HEIGHT by its number of rows so each row has equal pixel height.
     def bar_panel(fig, left, bottom, width, height, title, triples):
         ax = fig.add_axes([left, bottom, width, height])
         ax.set_facecolor(PANEL_BG)
+
         labels = [t[0] for t in triples]
         pcts   = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
         texts  = [t[2] for t in triples]
-        n = len(labels); y = np.arange(n)[::-1]
-        ax.set_xlim(0, 100); ax.set_ylim(-0.5, n-0.5)
+        n = len(labels)
+        y = np.arange(n)[::-1]
 
-        bar_h = 0.72
-        gap_h = 0.08
+        ax.set_xlim(0, 100)
+        ax.set_ylim(-0.5, n-0.5)
+
+        BAR_FRAC = 0.72   # portion of each row taken by the colored bar
+        GAP_FRAC = 0.10   # visible gap between rows (same everywhere)
+        bar_h = BAR_FRAC
+        gap_h = GAP_FRAC
+
+        # grey tracks (row background)
         for yi in y:
-            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2-gap_h/2), 100, bar_h+gap_h, facecolor=TRACK_BG, edgecolor='none'))
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_h/2 - gap_h/2),
+                                            100, bar_h + gap_h,
+                                            facecolor=TRACK_BG, edgecolor='none'))
+
+        # fills + values
         for yi, v, t in zip(y, pcts, texts):
-            ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2), v, bar_h,
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_h/2), v, bar_h,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
-        ax.set_yticks(y); ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
+            ax.text(1.0, yi, t, va="center", ha="left",
+                    color="#0B0B0B", fontsize=9.0, weight="900")
+
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
@@ -1065,8 +1080,8 @@ else:
 
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name (font +1 vs v4) + inline coloured badge (font +1)
-    name_fs = 25  # was 24
+    # Name (Title +1) + inline coloured badge (+1) — from your last request
+    name_fs = 25
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
     fig.canvas.draw()
@@ -1078,8 +1093,7 @@ else:
     if isinstance(role_scores, dict) and role_scores:
         _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
         R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        # slightly taller to house bigger text
-        bh = name_h_frac * 1.02
+        bh = name_h_frac * 1.02  # slightly taller to house bigger text
         bw = bh
         by = 0.962 - bh
         fig.patches.append(
@@ -1088,9 +1102,9 @@ else:
                 transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
         )
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
-                 fontsize=15.8, color="#FFFFFF", va="center", ha="center", fontweight="900")  # +1
+                 fontsize=15.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Info row (font +2 vs v4 already applied in v4; keep)
+    # Info row (uses overall xG)
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
@@ -1098,7 +1112,7 @@ else:
     )
     fig.text(0.035, 0.912, meta, color="#FFFFFF", fontsize=12.2)
 
-    # ----------------- chips (reduced by 1 vs v4) + roles -----------------
+    # ----------------- chips + roles -----------------
     y = 0.882
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
@@ -1109,61 +1123,85 @@ else:
     ATTACKING = []
     for lab, met in [
         ("Crosses", "Crosses per 90"),
-        ("Crossing %", "Crosses per 90"),
+        ("Crossing %", "Accurate crosses, %"),
         ("Goals", "Non-penalty goals per 90"),
         ("xG",     "xG per 90"),
-        ("xA per 90",       "xA per 90"),
-        ("Offensive duels",       "Offensive duels per 90"),
-        ("Progressive Runs",       "Progressive runs per 90"),
-        ("Shots",      "Shots per 90"),
-        ("SoT %",         "Shots on target, %"),
-        ("Touches in box","Touches in box per 90"),
-
+        ("xA per 90", "xA per 90"),
+        ("Offensive duels", "Offensive duels per 90"),
+        ("Progressive Runs", "Progressive runs per 90"),
+        ("Shots", "Shots per 90"),
+        ("SoT %", "Shots on target, %"),
+        ("Touches in box", "Touches in box per 90"),
     ]:
         ATTACKING.append((lab, pct_of(met), val_of(met)[1]))
 
     DEFENSIVE = []
     for lab, met in [
-        ("Aerial Duels",     "Aerial duels per 90"),
-        ("Aerial %",      "Aerial duels won, %"),
-        ("Defensive Duels",  "Defensive duels per 90"),
-        ("Defensuve Duel %",    "Defensive duels won, %"),
-        ("PAdj Interceptions.",  "PAdj Interceptions"),
+        ("Aerial Duels", "Aerial duels per 90"),
+        ("Aerial %", "Aerial duels won, %"),
+        ("Defensive Duels", "Defensive duels per 90"),
+        ("Defensive Duel %", "Defensive duels won, %"),
+        ("PAdj Interceptions", "PAdj Interceptions"),
         ("Shots blocked", "Shots blocked per 90"),
-        ("Succ. def acts","Successful defensive actions per 90"),
+        ("Succ. def acts", "Successful defensive actions per 90"),
     ]:
         DEFENSIVE.append((lab, pct_of(met), val_of(met)[1]))
 
     POSSESSION = []
     for lab, met in [
         ("Accelerations", "Accelerations per 90"),
-        ("Deep completions","Deep completions per 90"),
-        ("Dribbles",   "Dribbles per 90"),
-        ("Dribble %",     "Accurate crosses, %"),
-        ("Forward Passes",      "Forward passes per 90"),
-        ("Forward Pass %",       "Accurate forward passes, %"),
-        ("Key passes",      "Key passes per 90"),
-        ("Long Passes",         "Long passes per 90"),
-        ("Long Pass %",          "Accurate long passes, %"),
-        ("Passes",       "Passes per 90"),
-        ("Pass %",          "Accurate passes, %"),
-        ("Pass to F3rd",  "Passes to final third per 90"),
-        ("P F3rd%",        "Accurate passes to final third, %"),
+        ("Deep completions", "Deep completions per 90"),
+        ("Dribbles", "Dribbles per 90"),
+        ("Dribble %", "Successful dribbles, %"),
+        ("Forward Passes", "Forward passes per 90"),
+        ("Forward Pass %", "Accurate forward passes, %"),
+        ("Key passes", "Key passes per 90"),
+        ("Long Passes", "Long passes per 90"),
+        ("Long Pass %", "Accurate long passes, %"),
+        ("Passes", "Passes per 90"),
+        ("Pass %", "Accurate passes, %"),
+        ("Pass to F3rd", "Passes to final third per 90"),
+        ("P F3rd %", "Accurate passes to final third, %"),
         ("Passes to PA", "Passes to penalty area per 90"),
-        ("Pass PA %",         "Accurate passes to penalty area, %"),
-        ("Prog Passes",  "Progressive passes per 90"),
-        ("Prog Pass %",  "Accurate progressive passes, %"),
-        ("Smart passes",    "Smart passes per 90"),
-        
-        
-        
+        ("Pass PA %", "Accurate passes to penalty area, %"),
+        ("Prog Passes", "Progressive passes per 90"),
+        ("Prog Pass %", "Accurate progressive passes, %"),
+        ("Smart passes", "Smart passes per 90"),
     ]:
         POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # ----------------- panels — same layout as v4 -----------------
-    bar_panel(fig, left=0.060, bottom=0.410, width=0.37, height=0.245, title="Attacking",  triples=ATTACKING)
-    bar_panel(fig, left=0.060, bottom=0.130, width=0.37, height=0.245, title="Defensive",  triples=DEFENSIVE)
-    bar_panel(fig, left=0.540, bottom=0.130, width=0.36, height=0.525, title="Possession", triples=POSSESSION)
+    # ----------------- panel sizing for UNIFORM ROW HEIGHT -----------------
+    # Each row gets the same figure-fraction height, regardless of panel.
+    ROW_H = 0.028      # tweak to make all rows taller/shorter together
+    HEADER_PAD = 0.06  # title + breathing space per panel
+    PANEL_GAP = 0.035  # vertical gap between stacked panels (left column)
+
+    n_att = len(ATTACKING)
+    n_def = len(DEFENSIVE)
+    n_pos = len(POSSESSION)
+
+    h_att = ROW_H * n_att + HEADER_PAD
+    h_def = ROW_H * n_def + HEADER_PAD
+    h_pos = ROW_H * n_pos + HEADER_PAD
+
+    # layout (left column: two stacked; right column: one tall)
+    left = 0.060
+    right = 0.540
+    width_left = 0.37
+    width_right = 0.36
+    bottom_left = 0.130
+    bottom_right = 0.130
+
+    # Defensive bottom-left, Attacking above it (prevents overlap no matter row counts)
+    bar_panel(fig, left=left, bottom=bottom_left, width=width_left, height=h_def,
+              title="Defensive", triples=DEFENSIVE)
+
+    bar_panel(fig, left=left, bottom=bottom_left + h_def + PANEL_GAP, width=width_left, height=h_att,
+              title="Attacking", triples=ATTACKING)
+
+    # Possession on the right, height matched to its rows
+    bar_panel(fig, left=right, bottom=bottom_right, width=width_right, height=h_pos,
+              title="Possession", triples=POSSESSION)
 
     # ----------------- render + download -----------------
     st.pyplot(fig, use_container_width=True)
@@ -1173,7 +1211,8 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
-# ============================ END (E) ONE-PAGER (UPDATED v5) ============================
+# ============================ END (E) ONE-PAGER (UNIFORM BAR THICKNESS v6) ============================
+
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
 st.markdown("---")
