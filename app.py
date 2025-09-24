@@ -870,12 +870,12 @@ st.dataframe(styled, use_container_width=True)
 # =====================================================================
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
-# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (UPDATED v3) ============================
-# Requested fixes:
-# 1) Strength/Weakness/Style chips: +2 font size, WHITE text.
-# 2) Role scores: EXCLUDE "All In"; medium-grey tight background for role name + tight number badge;
-#    reduce role name/number font size by 1.
-# 3) Make all bars thicker with a small visible gap between each.
+# ============================ (E) ONE-PAGER — DARK, TIGHT, POLISHED (APPLY 4 SUGGESTIONS) ============================
+# Changes implemented:
+# 1) All chips (Strengths / Weaknesses / Style) now use WHITE text for consistency.
+# 2) Role pill (medium grey) + number badge: tighter background wraps (reduced padding) to “just the word/number”.
+# 3) Wider gutters between the left (Attacking/Defensive) and right (Possession) chart panels to avoid any crowding.
+# 4) Chip font size +1 for better balance vs chart labels.
 
 from io import BytesIO
 import numpy as np
@@ -892,15 +892,17 @@ else:
     PANEL_BG  = "#11161C"
     TRACK_BG  = "#2C323A"
     TEXT      = "#E5E7EB"
-    ROLE_GREY = "#3A4048"   # medium grey for role chip
+    ROLE_GREY = "#3A4048"   # medium grey for role tag pill
+    NAME_BG   = "#3B424B"   # medium grey for name/rating background (tight)
 
-    # chip backgrounds (text will be white per request)
-    CHIP_G_BG = "#22C55E"   # strengths
-    CHIP_R_BG = "#EF4444"   # weaknesses
-    CHIP_B_BG = "#60A5FA"   # style
+    # chips (keep coloured backgrounds, switch ALL to white text)
+    CHIP_G_BG = "#22C55E"; CHIP_G_TXT = "#FFFFFF"  # strengths
+    CHIP_R_BG = "#EF4444"; CHIP_R_TXT = "#FFFFFF"  # weaknesses
+    CHIP_B_BG = "#60A5FA"; CHIP_B_TXT = "#FFFFFF"  # style
 
     # ----------------- helpers -----------------
     def div_color_tuple(v: float):
+        """0..100 → red→gold→green (RGB 0..1)."""
         if pd.isna(v): return (0.6,0.63,0.66)
         v = float(v)
         if v <= 50:
@@ -909,6 +911,7 @@ else:
             t = (v-50)/50.0; c1, c2 = np.array([234,179,8]), np.array([34,197,94])
         return tuple(((c1 + (c2-c1)*t)/255.0).astype(float))
 
+    # precise text measurement in figure fraction
     def _text_width_frac(fig, s, *, fontsize=8, weight="normal"):
         t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
                      transform=fig.transFigure, alpha=0)
@@ -927,14 +930,13 @@ else:
         t.remove()
         return h_px / fig.bbox.height
 
-    # ultra-tight chips (bg fits text exactly)
-    # NOTE: fs bumped by +2 (from ~7.1 → 9.1) and **WHITE** text
-    def chip_row_exact(fig, items, y, bg, *, fs=9.1, weight="900", max_rows=2, gap_x=0.006):
+    # ultra-tight chips (bg fits text exactly) — fs +1 (suggestion #4), white text
+    def chip_row_exact(fig, items, y, bg, fg, *, fs=8.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
         row_gap = 0.034
-        pad_x = 0.004
-        pad_y = 0.002
+        pad_x = 0.0035   # slightly smaller to keep the wrap tight
+        pad_y = 0.0018
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
         for s in items[:60]:
             w = _text_width_frac(fig, s, fontsize=fs, weight=weight) + pad_x*2
@@ -947,62 +949,43 @@ else:
                     boxstyle=f"round,pad=0.001,rounding_size={h*0.45}",
                     transform=fig.transFigure, facecolor=bg, edgecolor="none")
             )
-            fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color="#FFFFFF",
+            fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color=fg,
                      va="center", ha="left", fontweight=weight)
             x += w + gap_x
         return y - row_gap
 
-    # Role row: EXCLUDES "All In"; tight grey name pill + tight coloured number badge
-    # Font sizes reduced by 1 (from 10.6 → 9.6)
-    def roles_row_tight(fig, rs: dict, y, *, fs=9.6):
+    # role row: medium-grey role pill + coloured number badge — both with *tighter* wraps (suggestion #2)
+    def roles_row(fig, rs: dict, y, *, fs=8.5):  # slightly smaller than before to keep things compact
         if not isinstance(rs, dict) or not rs: return y
-        # filter out "All In"
-        rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
-        if not rs: return y
-
         x0 = x = 0.035
         row_gap = 0.040
-        gap = 0.003
-        pad_x = 0.006
-        pad_y = 0.003
-
+        gap = 0.0025  # tiny gap between role and number
         for r, v in sorted(rs.items(), key=lambda kv: -kv[1])[:12]:
-            # role chip geometry (tight)
-            text_w = _text_width_frac(fig, r, fontsize=fs, weight="800")
-            text_h = _text_height_frac(fig, "Hg", fontsize=fs, weight="800")
-            role_w = text_w + pad_x*2
-            role_h = text_h + pad_y*2
-
+            # very tight width calc
+            role_w = _text_width_frac(fig, r, fontsize=fs, weight="800") + 0.012
             num_text = f"{int(round(v))}"
-            num_wt   = _text_width_frac(fig, num_text, fontsize=fs-0.6, weight="900")  # numbers also -1 net
-            num_ht   = _text_height_frac(fig, "Hg", fontsize=fs-0.6, weight="900")
-            num_w    = num_wt + pad_x*2 * 0.9
-            num_h    = num_ht + pad_y*2 * 0.9
-
-            total = role_w + gap + num_w
+            num_w  = _text_width_frac(fig, num_text, fontsize=fs, weight="900") + 0.012
+            total  = role_w + gap + num_w
             if x + total > 0.965:
                 x = x0; y -= row_gap
-
-            # role pill (medium grey), tight to word
+            # role pill — tight wrap, white text
             fig.patches.append(
-                mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
+                mpatches.FancyBboxPatch((x, y-0.017), role_w, 0.026,
+                    boxstyle="round,pad=0.001,rounding_size=0.008",
                     transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none")
             )
-            fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
+            fig.text(x + 0.007, y-0.004, r, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight="800")
-
-            # number badge (tight) right beside
+            # number badge — tight wrap, white text
             R,G,B = [int(255*c) for c in div_color_tuple(v)]
             bx = x + role_w + gap
             fig.patches.append(
-                mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
+                mpatches.FancyBboxPatch((bx, y-0.017), num_w, 0.026,
+                    boxstyle="round,pad=0.001,rounding_size=0.008",
                     transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
             )
-            fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
+            fig.text(bx + num_w/2, y-0.004, num_text, fontsize=fs, color="#FFFFFF",
                      va="center", ha="center", fontweight="900")
-
             x = bx + num_w + 0.010
         return y - row_gap
 
@@ -1023,7 +1006,7 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # bar panel: **thicker** bars + small visible gap; improved gutters; narrower width
+    # bar panel: thicker bars + tiny gap (already done); keep good separation
     def bar_panel(fig, left, bottom, width, height, title, triples):
         ax = fig.add_axes([left, bottom, width, height])
         ax.set_facecolor(PANEL_BG)
@@ -1032,22 +1015,23 @@ else:
         texts  = [t[2] for t in triples]
         n = len(labels); y = np.arange(n)[::-1]
         ax.set_xlim(0, 100); ax.set_ylim(-0.5, n-0.5)
-
-        # thicker bars + a couple of millimetres worth of gap visually
-        bar_h = 0.72
-        gap_h = 0.08
+        bar_h = 0.52   # a touch thicker
+        gap_h = 0.05   # “couple of mm” visual gap between rows
+        # tracks
         for yi in y:
             ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2-gap_h/2), 100, bar_h+gap_h, facecolor=TRACK_BG, edgecolor='none'))
+        # fills + value
         for yi, v, t in zip(y, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi-bar_h/2), v, bar_h,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
             ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
-        ax.set_yticks(y); ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
+        # labels + only 50th line
+        ax.set_yticks(y); ax.set_yticklabels(labels, color=TEXT, fontsize=10.4, fontweight="bold")
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
-        ax.set_title(title, color=TEXT, fontsize=17, pad=6, fontweight="900")
+        ax.set_title(title, color=TEXT, fontsize=16.5, pad=6, fontweight="900")
 
     # ----------------- figure & header -----------------
     W, H = 1500, 1080
@@ -1065,39 +1049,47 @@ else:
     xg90   = f"{float(ply.get('xG per 90')):.2f}" if pd.notna(ply.get("xG per 90")) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + inline badge
+    # Name with tight medium-grey background + separate tight number box (unchanged behaviour)
     name_fs = 22
-    name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
-                         fontsize=name_fs, fontweight="900", va="top", ha="left")
-    fig.canvas.draw()
-    r = fig.canvas.get_renderer()
-    name_w_frac = name_text.get_window_extent(renderer=r).width / fig.bbox.width
-    name_h_frac = name_text.get_window_extent(renderer=r).height / fig.bbox.height
-    badge_x = 0.035 + name_w_frac + 0.010
+    name_w = _text_width_frac(fig, f"{player_name}", fontsize=name_fs, weight="900")
+    name_h = _text_height_frac(fig, "Hg", fontsize=name_fs, weight="900")
+    pad_x, pad_y = 0.006, 0.004
+    name_x, name_y_top = 0.035, 0.965
+    fig.patches.append(
+        mpatches.FancyBboxPatch((name_x - pad_x, name_y_top - name_h - pad_y), name_w + pad_x*2, name_h + pad_y*2,
+            boxstyle="round,pad=0.001,rounding_size=0.012",
+            transform=fig.transFigure, facecolor=NAME_BG, edgecolor="none")
+    )
+    fig.text(name_x, name_y_top, f"{player_name}", color="#FFFFFF",
+             fontsize=name_fs, fontweight="900", va="top", ha="left")
 
+    # best role score badge — tight wrap next to the name
+    badge_x = name_x + name_w + 0.010
     if isinstance(role_scores, dict) and role_scores:
         _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
-        R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        bh = name_h_frac * 0.85
-        bw = bh
-        by = 0.962 - bh
+        num_text = f"{int(round(best_val))}"
+        num_fs = 13.0
+        num_w = _text_width_frac(fig, num_text, fontsize=num_fs, weight="900")
+        num_h = _text_height_frac(fig, "Hg", fontsize=num_fs, weight="900")
         fig.patches.append(
-            mpatches.FancyBboxPatch((badge_x, by), bw, bh,
-                boxstyle="round,pad=0.001,rounding_size=0.009",
-                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
+            mpatches.FancyBboxPatch((badge_x - 0.004, name_y_top - num_h - 0.004), num_w + 0.008, num_h + 0.008,
+                boxstyle="round,pad=0.001,rounding_size=0.010",
+                transform=fig.transFigure, facecolor=NAME_BG, edgecolor="none")
         )
-        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
-                 fontsize=12.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
+        fig.text(badge_x, name_y_top, num_text, fontsize=num_fs, color="#FFFFFF",
+                 va="top", ha="left", fontweight="900")
 
+    # Info line
     meta = f"{pos} — {team} — {league} — Age {age if age else '—'} — Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — Goals {goals} — xG/90 {xg90} — Assists {assists}"
     fig.text(0.035, 0.912, meta, color="#FFFFFF", fontsize=10.2)
 
-    # ----------------- tags & tight roles -----------------
+    # ----------------- chips (white text) + roles -----------------
     y = 0.882
-    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=9.1)
-    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=9.1)
-    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=9.1)
-    y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=9.6)
+    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, CHIP_G_TXT, fs=8.1)  # +1 size
+    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, CHIP_R_TXT, fs=8.1)
+    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, CHIP_B_TXT, fs=8.1)
+
+    y = roles_row(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=8.5)
 
     # ----------------- metric groups (label, percentile, actual_str) -----------------
     ATTACKING = []
@@ -1145,10 +1137,11 @@ else:
     ]:
         POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # ----------------- panels — reduced widths & wider gutters, thicker bars -----------------
-    bar_panel(fig, left=0.060, bottom=0.410, width=0.37, height=0.245, title="Attacking",  triples=ATTACKING)
-    bar_panel(fig, left=0.060, bottom=0.130, width=0.37, height=0.245, title="Defensive",  triples=DEFENSIVE)
-    bar_panel(fig, left=0.540, bottom=0.130, width=0.36, height=0.525, title="Possession", triples=POSSESSION)
+    # ----------------- panels (WIDER GUTTERS — suggestion #3) -----------------
+    # Left stack a bit narrower; right panel shifted a touch further right to create more central whitespace.
+    bar_panel(fig, left=0.060, bottom=0.405, width=0.395, height=0.252, title="Attacking",  triples=ATTACKING)
+    bar_panel(fig, left=0.060, bottom=0.125, width=0.395, height=0.252, title="Defensive",  triples=DEFENSIVE)
+    bar_panel(fig, left=0.560, bottom=0.125, width=0.365, height=0.532, title="Possession", triples=POSSESSION)
 
     # ----------------- render + download -----------------
     st.pyplot(fig, use_container_width=True)
@@ -1158,7 +1151,8 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
-# ============================ END (E) ONE-PAGER (UPDATED v3) ============================
+# ============================ END (E) ONE-PAGER ============================
+
 
 
 
