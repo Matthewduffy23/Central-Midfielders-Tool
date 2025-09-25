@@ -1067,7 +1067,7 @@ else:
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=VALUE_FS, weight="600")
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=VALUE_FS + 0.5, weight="700")
 
         # clean axis
         for sp in ax.spines.values(): sp.set_visible(False)
@@ -1085,7 +1085,7 @@ else:
                      va="center", ha="left")
 
         # title aligned to the same gutter start
-        title_y = bottom + ax_h_frac + 0.012
+        title_y = bottom + ax_h_frac + 0.008
         fig.text(left + GUTTER_PAD/2, title_y, title,
                  color=TEXT, fontsize=TITLE_FS, fontweight="900", ha="left", va="bottom")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
@@ -1159,7 +1159,7 @@ else:
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles -----------------
-    y = 0.878  # a touch lower to create more breathing room under meta
+    y = 0.868  # a touch lower to create more breathing room under meta
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
