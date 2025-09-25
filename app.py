@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (tuned) ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,11 +914,11 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — slightly tighter (not cramped)
+    # chip rows — marginally closer
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.031   # slightly reduced vs original
+        row_gap = 0.028   # was 0.031 → marginally closer
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -938,14 +938,14 @@ else:
             x += w + gap_x
         return y - row_gap
 
-    # roles row — font +1, gap slightly reduced
-    def roles_row_tight(fig, rs: dict, y, *, fs=10.6):  # was 9.6 → +1
+    # roles row — keep font +1 from previous, but slightly bigger row spacing
+    def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
 
         x0 = x = 0.035
-        row_gap = 0.037  # slightly reduced
+        row_gap = 0.041  # was 0.037 → slightly larger gap
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
@@ -1001,22 +1001,19 @@ else:
         return v, f"{v:.2f}"
 
     # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
-    BAR_PX = 24   # bar thickness in pixels (tweak here if you want)
-    GAP_PX = 6   # gap between bars in pixels
+    BAR_PX = 24   # bar thickness in pixels
+    GAP_PX = 6    # gap between bars in pixels
+    SEP_PX = 2    # tiny separator between track rows (brings back the light-gray split)
     STEP_PX = BAR_PX + GAP_PX
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
         """
-        Create an axis whose pixel height is n_rows * STEP_PX, and draw bars so each
-        bar is BAR_PX pixels tall with GAP_PX pixels between rows.
-        `top` is the figure fraction for the axis TOP edge; axis bottom is computed.
-        Returns the computed bottom (for stacking).
+        Axis pixel height is n_rows * STEP_PX. Each bar is BAR_PX px tall with GAP_PX px between rows.
+        Adds a subtle row separator so tracks don't visually touch.
         """
-        # Figure pixel height
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
-        # Axis height as figure fraction
         ax_h_frac = (n_rows * STEP_PX) / fig_px_h
         bottom = top - ax_h_frac
 
@@ -1028,19 +1025,22 @@ else:
         texts  = [t[2] for t in triples]
         n = len(labels)
 
-        # One data unit = one row step; set constant bar/gap in data units
+        # Convert pixel sizes to data units (1 row step == 1 data unit)
         bar_du = BAR_PX / STEP_PX
         gap_du = GAP_PX / STEP_PX
+        sep_du = SEP_PX / STEP_PX
 
         ax.set_xlim(0, 100)
         ax.set_ylim(-0.5, n - 0.5)
-
         y_idx = np.arange(n)[::-1]  # top to bottom
 
-        # Tracks & bars
+        # Tracks with a tiny gap (sep_du) between rows
+        track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
-            ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2 - gap_du/2), 100, bar_du + gap_du,
+            ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
+
+        # Bars
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
@@ -1052,7 +1052,7 @@ else:
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
-        ax.set_title(title, color=TEXT, fontsize=18, pad=6, fontweight="900")  # +1 pt
+        ax.set_title(title, color=TEXT, fontsize=19, pad=6, fontweight="900")  # +1 size & bold
 
         return bottom
 
@@ -1078,34 +1078,38 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — +2 pts; meta moved down
-    name_fs = 27  # was 25 → +2
+    # Name + badge — name +1 size; badge top-aligned to the name so they sit on one line
+    name_fs = 28  # was 27 → +1
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
     fig.canvas.draw(); r = fig.canvas.get_renderer()
-    name_w_frac = name_text.get_window_extent(renderer=r).width / fig.bbox.width
-    name_h_frac = name_text.get_window_extent(renderer=r).height / fig.bbox.height
+    name_bbox = name_text.get_window_extent(renderer=r)
+    name_w_frac = name_bbox.width / fig.bbox.width
+    name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
     if isinstance(role_scores, dict) and role_scores:
         _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
         R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        bh = name_h_frac * 1.02; bw = bh; by = 0.962 - bh
+        # exact same height as the name line; top-aligned so they share the same line visually
+        bh = name_h_frac
+        bw = bh
+        by = 0.962 - bh
         fig.patches.append(mpatches.FancyBboxPatch((badge_x, by), bw, bh,
                           boxstyle="round,pad=0.001,rounding_size=0.011",
                           transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
-                 fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")  # +2
+                 fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.898, meta, color="#FFFFFF", fontsize=12.2)  # slightly lower than before
+    fig.text(0.035, 0.892, meta, color="#FFFFFF", fontsize=12.2)  # nudged a bit lower
 
-    # ----------------- chips + roles (slightly tighter) -----------------
-    y = 0.872
+    # ----------------- chips + roles (tuned spacing) -----------------
+    y = 0.868
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
@@ -1162,11 +1166,11 @@ else:
     # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
-    TOP = 0.635                # common top for the three panels
-    V_GAP_FRAC = 0.030             # gap between Attacking and Defensive axes
+    TOP = 0.635
+    V_GAP_FRAC = 0.030
 
     # Left column
-    att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking", ATTACKING)
+    att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
     def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
 
     # Right column
@@ -1180,7 +1184,8 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS ============================
+
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (tuned) ============================
 
 
 
