@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + left-align) ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,12 +914,11 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — **slightly tighter vertical spacing** (row_gap 0.026)
-    # NEW: max_per_row to cap chips per row (e.g., 5)
+    # chip rows — slightly tighter vertical spacing + cap per row
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006, max_per_row=None):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.026   # tightened
+        row_gap = 0.026
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -942,7 +941,7 @@ else:
             per_row += 1
         return y - row_gap
 
-    # roles row — font +1
+    # roles row — slightly squarer corners on badges
     def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
@@ -987,7 +986,7 @@ else:
             x = bx + num_w + 0.010
         return y - row_gap
 
-    # percentiles + actuals
+    # percentiles + actuals helpers
     def pct_of(metric: str) -> float:
         if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
             return float(pct_extra[metric])
@@ -1004,14 +1003,19 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
+    # -------- exact same pixel bar height & gap; panel height flexes with row count --------
     BAR_PX = 24
     GAP_PX = 6
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
-    LABEL_FS = 10.6  # metric label font size (up from 10.6)
+    LABEL_FS = 10.6  # metric label font size
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
+        """
+        Draw a panel where both the title and the metric labels are left-aligned exactly
+        at the bars' start (x=0). Labels are rendered INSIDE the axes so alignment
+        matches on both left and right columns.
+        """
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
@@ -1040,25 +1044,33 @@ else:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
 
+        # bars + value labels (left-placed inside bars)
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
             ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=8.5, weight="600")
 
-            ax.set_yticks(y_idx)
-            ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+        # ---- LEFT-ALIGN METRIC NAMES INSIDE THE AXES AT x=0 ----
+        ax.set_yticks(y_idx)
+        ax.set_yticklabels([])  # we'll draw them manually
+        for yi, lab in zip(y_idx, labels):
+            # axes-y transform: x in axes coords [0..1], y in data coords
+            ax.text(0.0, yi, lab,
+                    transform=ax.get_yaxis_transform(),  # (x in Axes, y in Data)
+                    ha="left", va="center",
+                    color=TEXT, fontsize=LABEL_FS, fontweight="bold")
 
-
-
+        # clean frame
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
+        ax.tick_params(axis="y", length=0)  # no tick marks
         ax.grid(False)
 
         # midline at 50th percentile
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # title + subtle underline (Axes coords)
-        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
+        # title + subtle underline (Axes coords), left-aligned at x=0 (same as labels)
+        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900", loc="left")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
@@ -1097,14 +1109,12 @@ else:
 
     # >>> BADGE (β=0.40 league-adjusted) <<<
     if isinstance(role_scores, dict) and role_scores:
-        # raw best role score (within-league)
         _, best_val_raw = max(role_scores.items(), key=lambda kv: kv[1])
 
         # league strength from global table; default 50 if unknown
         _ls_map = globals().get("LEAGUE_STRENGTHS", {})
         league_strength = float(_ls_map.get(league, 50.0))
 
-        # fixed beta for the badge only
         BETA_BADGE = 0.40
         best_val_adj = (1.0 - BETA_BADGE) * float(best_val_raw) + BETA_BADGE * league_strength
 
@@ -1120,10 +1130,10 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val_adj))}",
                  fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # (2) Meta row with **bold Team & League** (draw as segmented text runs)
+    # Meta row — bold Team & League (segmented runs)
     x_meta = 0.035
     y_meta = 0.905
-    gap = 0.004  # small spacer between runs
+    gap = 0.004
     runs = [
         (f"{pos} — ", "normal"),
         (team, "bold"),
@@ -1144,7 +1154,6 @@ else:
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
 
-    # (3) roles row brought slightly closer to chips
     y -= 0.015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1197,11 +1206,11 @@ else:
         ("Smart Passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-# ----------------- layout (top-anchored; panel heights flex) -----------------
+    # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
-    V_GAP_FRAC = 0.05
+    V_GAP_FRAC = 0.050
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
@@ -1219,7 +1228,7 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + left-align) ============================
 
 
 
