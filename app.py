@@ -1055,7 +1055,7 @@ else:
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
         # title + subtle underline (Axes coords)
-        ax.set_title(title, color=TEXT, fontsize=22, pad=8, fontweight="900")
+        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900", loc="left")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
