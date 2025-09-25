@@ -1009,7 +1009,7 @@ else:
     GAP_PX = 6
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
-    LABEL_FS = 11.0  # metric label font size (up from 10.6)
+    LABEL_FS = 10.6  # metric label font size (up from 10.6)
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
         fig.canvas.draw()
@@ -1043,7 +1043,7 @@ else:
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=8.5, weight="600")
 
         ax.set_yticks(y_idx)
         ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
