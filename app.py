@@ -1198,7 +1198,7 @@ else:
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
-    V_GAP_FRAC = 0.030
+    V_GAP_FRAC = 0.040
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
