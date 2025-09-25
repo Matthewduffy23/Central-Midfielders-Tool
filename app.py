@@ -1130,7 +1130,7 @@ else:
          f"Matches {matches if matches else '—'} — Goals {goals} — xG {xg_total_str} — Assists {assists}", "normal")
     ]
     for txt, weight in runs:
-        fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=12.2,
+        fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=13,
                  fontweight=("900" if weight == "bold" else "normal"), ha="left", va="center")
         x_meta += _text_width_frac(fig, txt, fontsize=13.5,
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
@@ -1197,7 +1197,7 @@ else:
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
-    V_GAP_FRAC = 0.030
+    V_GAP_FRAC = 0.040
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
