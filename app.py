@@ -1154,7 +1154,7 @@ else:
         ("xG", "xG per 90"),
         ("Expected Assists", "xA per 90"),
         ("Offensive duels", "Offensive duels per 90"),
-        ("Progressive Runs", "Progressive runs per 90"),
+        ("Offensive Duel %", "Offensive duels won, %"),
         ("Shots", "Shots per 90"),
         ("Shooting %", "Shots on target, %"),
         ("Touches in box", "Touches in box per 90"),
@@ -1190,6 +1190,7 @@ else:
         ("Pass Pen Area %", "Accurate passes to penalty area, %"),
         ("Progessive Passes", "Progressive passes per 90"),
         ("Prog Pass %", "Accurate progressive passes, %"),
+        ("Progressive Runs", "Progressive runs per 90"),
         ("Smart passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
