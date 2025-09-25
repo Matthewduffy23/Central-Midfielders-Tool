@@ -886,7 +886,7 @@ else:
     # --------- palette / tokens ---------
     PAGE_BG   = "#0a0f1c"
     PANEL_BG  = "#11161C"
-    TRACK_BG  = "#2C323A"
+    TRACK_BG  = "#1a2233"
     TEXT      = "#E5E7EB"
     ROLE_GREY = "#737373"
 
