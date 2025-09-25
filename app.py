@@ -1132,13 +1132,13 @@ else:
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles (tuned spacing) -----------------
-    y = 0.868
+    y = 0.86
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
     # (3) roles row brought slightly closer to chips (was 0.003)
-    y -= 0.005
+    y -= 0.007
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
