@@ -1197,14 +1197,22 @@ else:
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
-    V_GAP_FRAC = 0.030
+    V_GAP_FRAC = 0.040
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
     def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
 
-    # Right column
-    _ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
+    # Right column (draw, then fill to match left-bottom)
+right_bottom = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
+
+    # If the right panel ends higher, add a background filler so it reaches the same bottom
+if right_bottom > def_bottom:
+    filler_h = right_bottom - def_bottom
+    ax_fill = fig.add_axes([RIGHT, def_bottom, WIDTH_R, filler_h])
+    ax_fill.set_facecolor(PANEL_BG)
+    ax_fill.set_xticks([]); ax_fill.set_yticks([])
+    for sp in ax_fill.spines.values(): sp.set_visible(False)
 
     # ----------------- render + download -----------------
     st.pyplot(fig, use_container_width=True)
