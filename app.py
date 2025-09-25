@@ -971,7 +971,7 @@ else:
                 x = x0; y -= row_gap
 
             fig.patches.append(mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
-                              boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
+                              boxstyle=f"round,pad=0.001,rounding_size={role_h*0.25}",
                               transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none"))
             fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight="800")
@@ -979,7 +979,7 @@ else:
             R,G,B = [int(255*c) for c in div_color_tuple(v)]
             bx = x + role_w + gap
             fig.patches.append(mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
-                              boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
+                              boxstyle=f"round,pad=0.001,rounding_size={num_h*0.25}",
                               transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
             fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
                      va="center", ha="center", fontweight="900")
@@ -1055,7 +1055,7 @@ else:
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
         # title + subtle underline (Axes coords)
-        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
+        ax.set_title(title, color=TEXT, fontsize=22, pad=8, fontweight="900")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
