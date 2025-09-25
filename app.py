@@ -1193,24 +1193,21 @@ else:
         ("Smart passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-   # ----------------- layout (top-anchored; panel heights flex) -----------------
-LEFT, RIGHT = 0.060, 0.540
-WIDTH_L, WIDTH_R = 0.37, 0.36
-TOP = 0.66
-V_GAP_FRAC = 0.030
+# ----------------- layout (top-anchored; panel heights flex) -----------------
+    LEFT, RIGHT = 0.060, 0.540
+    WIDTH_L, WIDTH_R = 0.37, 0.36
+    TOP = 0.66
+    V_GAP_FRAC = 0.030
 
-# Left column
-att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
-def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
+    # Left column
+    att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
+    def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
 
-# Right column
-_ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
-
-
-
+    # Right column
+    _ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
 
     # ----------------- render + download -----------------
-st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, use_container_width=True)
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=170, bbox_inches="tight", facecolor=fig.get_facecolor())
     st.download_button("⬇️ Download one-pager (PNG)",
@@ -1219,7 +1216,6 @@ st.pyplot(fig, use_container_width=True)
                        mime="image/png")
 
 # ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
-
 
 
 
