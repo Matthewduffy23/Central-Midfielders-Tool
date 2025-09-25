@@ -1193,34 +1193,19 @@ else:
         ("Smart passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # ----------------- layout (top-anchored; panel heights flex) -----------------
-    LEFT, RIGHT = 0.060, 0.540
-    WIDTH_L, WIDTH_R = 0.37, 0.36
-    TOP = 0.66
-    V_GAP_FRAC = 0.040
+   # ----------------- layout (top-anchored; panel heights flex) -----------------
+LEFT, RIGHT = 0.060, 0.540
+WIDTH_L, WIDTH_R = 0.37, 0.36
+TOP = 0.66
+V_GAP_FRAC = 0.030
 
 # Left column
-att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking", ATTACKING)
+att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
 def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
 
-# Right column (draw, then fill to match left-bottom)
-right_bottom = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
+# Right column
+_ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
 
-# ---- Fill any gap so the right panel visually reaches the same bottom as the left ----
-# (Work directly in figure coordinates; no extra axes needed.)
-if right_bottom > def_bottom:
-    gap_h = right_bottom - def_bottom  # how much shorter the right panel is
-    fig.patches.append(
-        mpatches.Rectangle(
-            (RIGHT, def_bottom),      # (x, y) in figure frac coords
-            WIDTH_R,                  # width
-            gap_h,                    # height to fill
-            transform=fig.transFigure,
-            facecolor=PANEL_BG,
-            edgecolor="none",
-            zorder=0.5,               # beneath labels, above page bg
-        )
-    )
 
 
 
