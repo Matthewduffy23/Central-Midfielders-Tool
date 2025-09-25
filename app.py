@@ -895,7 +895,7 @@ else:
     # --------- layout / padding knobs ---------
     NAME_X   = 0.045   # more breathing room on the left
     META_X   = 0.045
-    CHIP_X0  = 0.06   # chips/roles start x
+    CHIP_X0  = 0.055   # chips/roles start x
     GUTTER_PAD  = 0.006
 
     # ----------------- helpers -----------------
