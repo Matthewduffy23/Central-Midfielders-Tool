@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (tuned) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (tuned again) ============================
 
 from io import BytesIO
 import numpy as np
@@ -918,7 +918,7 @@ else:
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.028   # was 0.031 → marginally closer
+        row_gap = 0.028   # marginally closer
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -938,14 +938,14 @@ else:
             x += w + gap_x
         return y - row_gap
 
-    # roles row — keep font +1 from previous, but slightly bigger row spacing
+    # roles row — font +1, slightly larger gap
     def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
 
         x0 = x = 0.035
-        row_gap = 0.041  # was 0.037 → slightly larger gap
+        row_gap = 0.041  # slightly larger
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
@@ -1001,16 +1001,12 @@ else:
         return v, f"{v:.2f}"
 
     # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
-    BAR_PX = 24   # bar thickness in pixels
-    GAP_PX = 6    # gap between bars in pixels
-    SEP_PX = 2    # tiny separator between track rows (brings back the light-gray split)
+    BAR_PX = 24
+    GAP_PX = 6
+    SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
-        """
-        Axis pixel height is n_rows * STEP_PX. Each bar is BAR_PX px tall with GAP_PX px between rows.
-        Adds a subtle row separator so tracks don't visually touch.
-        """
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
@@ -1025,22 +1021,19 @@ else:
         texts  = [t[2] for t in triples]
         n = len(labels)
 
-        # Convert pixel sizes to data units (1 row step == 1 data unit)
         bar_du = BAR_PX / STEP_PX
         gap_du = GAP_PX / STEP_PX
         sep_du = SEP_PX / STEP_PX
 
         ax.set_xlim(0, 100)
         ax.set_ylim(-0.5, n - 0.5)
-        y_idx = np.arange(n)[::-1]  # top to bottom
+        y_idx = np.arange(n)[::-1]
 
-        # Tracks with a tiny gap (sep_du) between rows
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
 
-        # Bars
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
@@ -1052,7 +1045,8 @@ else:
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
-        ax.set_title(title, color=TEXT, fontsize=19, pad=6, fontweight="900")  # +1 size & bold
+        # >>> titles +1 size & bold <<<
+        ax.set_title(title, color=TEXT, fontsize=20, pad=6, fontweight="900")
 
         return bottom
 
@@ -1078,8 +1072,8 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — name +1 size; badge top-aligned to the name so they sit on one line
-    name_fs = 28  # was 27 → +1
+    # Name + badge — name +1 size; badge aligned to the same top line
+    name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
     fig.canvas.draw(); r = fig.canvas.get_renderer()
@@ -1091,7 +1085,6 @@ else:
     if isinstance(role_scores, dict) and role_scores:
         _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
         R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        # exact same height as the name line; top-aligned so they share the same line visually
         bh = name_h_frac
         bw = bh
         by = 0.962 - bh
@@ -1101,18 +1094,22 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
                  fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
+    # >>> Info row moved UP slightly <<<
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.892, meta, color="#FFFFFF", fontsize=12.2)  # nudged a bit lower
+    fig.text(0.035, 0.900, meta, color="#FFFFFF", fontsize=12.2)
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.868
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
+
+    # >>> Roles row nudged DOWN slightly <<<
+    y -= 0.006
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
@@ -1185,7 +1182,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (tuned) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (tuned again) ============================
+
 
 
 
