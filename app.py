@@ -1012,64 +1012,58 @@ else:
     TITLE_FS        = 21       # section titles +1 and bold
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
-        fig.canvas.draw()
-        fig_px_h = fig.bbox.height
+    fig.canvas.draw()
+    fig_px_h = fig.bbox.height
 
-        ax_h_frac = (n_rows * STEP_PX) / fig_px_h
-        bottom = top - ax_h_frac
+    ax_h_frac = (n_rows * STEP_PX) / fig_px_h
+    bottom = top - ax_h_frac
 
-        ax = fig.add_axes([left, bottom, width, ax_h_frac])
-        ax.set_facecolor(PANEL_BG)
+    ax = fig.add_axes([left, bottom, width, ax_h_frac])
+    ax.set_facecolor(PANEL_BG)
 
-        labels = [t[0] for t in triples]
-        pcts   = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
-        texts  = [t[2] for t in triples]
-        n = len(labels)
+    labels = [t[0] for t in triples]
+    pcts   = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
+    texts  = [t[2] for t in triples]
+    n = len(labels)
 
-        bar_du = BAR_PX / STEP_PX
-        gap_du = GAP_PX / STEP_PX
-        sep_du = SEP_PX / STEP_PX
+    bar_du = BAR_PX / STEP_PX
+    gap_du = GAP_PX / STEP_PX
+    sep_du = SEP_PX / STEP_PX
 
-        ax.set_xlim(0, 100)
-        ax.set_ylim(-0.5, n - 0.5)
-        y_idx = np.arange(n)[::-1]
+    ax.set_xlim(0, 100)
+    ax.set_ylim(-0.5, n - 0.5)
+    y_idx = np.arange(n)[::-1]
 
-        # Row separators (very subtle): a 1px line centered in the ‘air gap’
-        sep_color = "#0f141e"
+    sep_color = "#0f141e"
+    track_h = bar_du + gap_du - sep_du
 
-        # Track bands (slightly shorter than full step to create air)
-        track_h = bar_du + gap_du - sep_du
-        for yi in y_idx:
-            ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
-                                            facecolor=TRACK_BG, edgecolor='none'))
-            # separator line (subtle)
-            ax.plot([0, 100], [yi + (track_h/2) + sep_du/2], lw=0.6, color=sep_color, alpha=0.9, zorder=2)
+    for yi in y_idx:
+        ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
+                                        facecolor=TRACK_BG, edgecolor='none'))
+        # separator line (subtle) — FIXED
+        y_sep = yi + (track_h/2) + sep_du/2
+        ax.hlines(y_sep, xmin=0, xmax=100, colors=sep_color,
+                  linewidth=0.6, alpha=0.9, zorder=2)
 
-        # Bars + values
-        for yi, v, t in zip(y_idx, pcts, texts):
-            ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
-                                            facecolor=div_color_tuple(v), edgecolor='none', zorder=3))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B",
-                    fontsize=VALUE_FS, weight="900", zorder=4)
+    for yi, v, t in zip(y_idx, pcts, texts):
+        ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
+                                        facecolor=div_color_tuple(v), edgecolor='none', zorder=3))
+        ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B",
+                fontsize=VALUE_FS, weight="900", zorder=4)
 
-        # Metric labels
-        ax.set_yticks(y_idx)
-        ax.set_yticklabels(labels, color=TEXT, fontsize=METRIC_LABEL_FS, fontweight="bold")
+    ax.set_yticks(y_idx)
+    ax.set_yticklabels(labels, color=TEXT, fontsize=METRIC_LABEL_FS, fontweight="bold")
 
-        # Grid & spines
-        for sp in ax.spines.values(): sp.set_visible(False)
-        ax.tick_params(axis="x", labelsize=0, length=0)
-        ax.grid(False)
+    for sp in ax.spines.values(): sp.set_visible(False)
+    ax.tick_params(axis="x", labelsize=0, length=0)
+    ax.grid(False)
 
-        # Guide lines (25/50/75) — 50 strongest
-        ax.axvline(50, color="#9AA4B2", linestyle=":", linewidth=1.2, zorder=1)
-        ax.axvline(25, color="#465162", linestyle=":", linewidth=0.8, zorder=1)
-        ax.axvline(75, color="#465162", linestyle=":", linewidth=0.8, zorder=1)
+    ax.axvline(50, color="#9AA4B2", linestyle=":", linewidth=1.2, zorder=1)
+    ax.axvline(25, color="#465162", linestyle=":", linewidth=0.8, zorder=1)
+    ax.axvline(75, color="#465162", linestyle=":", linewidth=0.8, zorder=1)
 
-        # Section title (bigger & bold)
-        ax.set_title(title, color=TEXT, fontsize=TITLE_FS, pad=8, fontweight="900")
-
-        return bottom
+    ax.set_title(title, color=TEXT, fontsize=TITLE_FS, pad=8, fontweight="900")
+    return bottom
 
     # ----------------- figure & header -----------------
     W, H = 1500, 1080
