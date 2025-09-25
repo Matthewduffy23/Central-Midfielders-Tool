@@ -1162,8 +1162,8 @@ else:
     # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
-    TOP = 0.7                  # common top for the three panels
-    V_GAP_FRAC = 0.050             # gap between Attacking and Defensive axes
+    TOP = 0.6                # common top for the three panels
+    V_GAP_FRAC = 0.040             # gap between Attacking and Defensive axes
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking", ATTACKING)
