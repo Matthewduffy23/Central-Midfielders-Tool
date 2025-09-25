@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (league-adjusted badge) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,11 +914,11 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — marginally closer
+    # chip rows — **slightly tighter vertical spacing** (row_gap 0.026)
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.028
+        row_gap = 0.026   # tightened
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -935,7 +935,7 @@ else:
             )
             fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight=weight)
-            x += w + gap_x
+            x += w + 0.006
         return y - row_gap
 
     # roles row — font +1
@@ -1078,7 +1078,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # ----- Name + LEAGUE-ADJUSTED badge (fixed beta=0.40 just for the badge) -----
+    # Name + badge — name size; badge aligned
     name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1088,41 +1088,37 @@ else:
     name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
-    BADGE_BETA = 0.40
-    league_strength = float(LEAGUE_STRENGTHS.get(league, 50.0)) if 'LEAGUE_STRENGTHS' in globals() else 50.0
-
-    badge_score = np.nan
     if isinstance(role_scores, dict) and role_scores:
-        # best within-league role value from role_scores (unchanged elsewhere)
-        _, best_within = max(role_scores.items(), key=lambda kv: kv[1])
-        # convex combo with league strength for the badge only
-        badge_score = (1 - BADGE_BETA) * float(best_within) + BADGE_BETA * league_strength
-
-    # Draw the badge using the adjusted score (color based on adjusted score too)
-    if pd.notna(badge_score):
-        R, G, B = [int(255*c) for c in div_color_tuple(badge_score)]
+        _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
+        R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
         bh = name_h_frac
         bw = bh
         by = 0.962 - bh
-        fig.patches.append(
-            mpatches.FancyBboxPatch(
-                (badge_x, by), bw, bh,
-                boxstyle="round,pad=0.001,rounding_size=0.011",
-                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"
-            )
-        )
-        fig.text(
-            badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(badge_score))}",
-            fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900"
-        )
+        fig.patches.append(mpatches.FancyBboxPatch((badge_x, by), bw, bh,
+                          boxstyle="round,pad=0.001,rounding_size=0.011",
+                          transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
+        # (1) **Badge number size +0.8 pt**
+        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
+                 fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Info row (nudged up)
-    meta = (
-        f"{pos} — {team} — {league} — Age {age if age else '—'} — "
-        f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
-        f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
-    )
-    fig.text(0.035, 0.905, meta, color="#FFFFFF", fontsize=12.2)
+    # (2) Meta row with **bold Team & League** (draw as segmented text runs)
+    x_meta = 0.035
+    y_meta = 0.905
+    gap = 0.004  # small spacer between runs
+
+    runs = [
+        (f"{pos} — ", "normal"),
+        (team, "bold"),
+        (" — ", "normal"),
+        (league, "bold"),
+        (f" — Age {age if age else '—'} — Minutes {mins if mins else '—'} — "
+         f"Matches {matches if matches else '—'} — Goals {goals} — xG {xg_total_str} — Assists {assists}", "normal")
+    ]
+    for txt, weight in runs:
+        fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=12.2,
+                 fontweight=("900" if weight == "bold" else "normal"), ha="left", va="center")
+        x_meta += _text_width_frac(fig, txt, fontsize=12.2,
+                                   weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.868
@@ -1130,8 +1126,8 @@ else:
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
-    # roles row (slightly higher than before)
-    y -= 0.003
+    # (3) roles row brought slightly closer to chips (was 0.003)
+    y -= 0.0015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
@@ -1204,7 +1200,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (league-adjusted badge) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+
 
 
 
