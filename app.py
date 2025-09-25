@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + left-align) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (left-align OUTSIDE labels) ============================
 
 from io import BytesIO
 import numpy as np
@@ -886,7 +886,7 @@ else:
     # --------- palette / tokens ---------
     PAGE_BG   = "#0a0f1c"
     PANEL_BG  = "#11161C"
-    TRACK_BG  = "#222c3d"   # clearer contrast vs page bg
+    TRACK_BG  = "#222c3d"
     TEXT      = "#E5E7EB"
     ROLE_GREY = "#737373"
 
@@ -914,7 +914,7 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — slightly tighter vertical spacing + cap per row
+    # chip rows (cap per row)
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006, max_per_row=None):
         if not items: return y
         x0 = x = 0.035
@@ -941,7 +941,7 @@ else:
             per_row += 1
         return y - row_gap
 
-    # roles row — slightly squarer corners on badges
+    # roles row — slightly squarer corners
     def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
@@ -986,7 +986,7 @@ else:
             x = bx + num_w + 0.010
         return y - row_gap
 
-    # percentiles + actuals helpers
+    # percentiles + actuals
     def pct_of(metric: str) -> float:
         if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
             return float(pct_extra[metric])
@@ -1003,7 +1003,7 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- exact same pixel bar height & gap; panel height flexes with row count --------
+    # -------- bars & layout tokens --------
     BAR_PX = 24
     GAP_PX = 6
     SEP_PX = 2
@@ -1011,11 +1011,7 @@ else:
     LABEL_FS = 10.6  # metric label font size
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
-        """
-        Draw a panel where both the title and the metric labels are left-aligned exactly
-        at the bars' start (x=0). Labels are rendered INSIDE the axes so alignment
-        matches on both left and right columns.
-        """
+        """Labels remain OUTSIDE the axes (classic tick labels), but are left-aligned."""
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
@@ -1038,38 +1034,34 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # tracks with a tiny separation
+        # tracks
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
 
-        # bars + value labels (left-placed inside bars)
+        # bars + value labels
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
             ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=8.5, weight="600")
 
-        # ---- LEFT-ALIGN METRIC NAMES INSIDE THE AXES AT x=0 ----
+        # ---- metric names OUTSIDE, left-aligned in the gutter ----
         ax.set_yticks(y_idx)
-        ax.set_yticklabels([])  # we'll draw them manually
-        for yi, lab in zip(y_idx, labels):
-            # axes-y transform: x in axes coords [0..1], y in data coords
-            ax.text(0.0, yi, lab,
-                    transform=ax.get_yaxis_transform(),  # (x in Axes, y in Data)
-                    ha="left", va="center",
-                    color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+        ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+        for lbl in ax.get_yticklabels():
+            lbl.set_horizontalalignment("left")   # left-align text itself
+        ax.tick_params(axis="y", pad=4)           # small inward pad (adjust if needed)
 
-        # clean frame
+        # cosmetics
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
-        ax.tick_params(axis="y", length=0)  # no tick marks
         ax.grid(False)
 
         # midline at 50th percentile
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # title + subtle underline (Axes coords), left-aligned at x=0 (same as labels)
+        # title left within the panel (will visually line up with labels gutter)
         ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900", loc="left")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
@@ -1097,7 +1089,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name — and league-adjusted badge beside it
+    # Name — and league-adjusted badge
     name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1107,18 +1099,13 @@ else:
     name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
-    # >>> BADGE (β=0.40 league-adjusted) <<<
+    # β=0.40 league-adjusted badge
     if isinstance(role_scores, dict) and role_scores:
         _, best_val_raw = max(role_scores.items(), key=lambda kv: kv[1])
-
-        # league strength from global table; default 50 if unknown
         _ls_map = globals().get("LEAGUE_STRENGTHS", {})
         league_strength = float(_ls_map.get(league, 50.0))
-
         BETA_BADGE = 0.40
         best_val_adj = (1.0 - BETA_BADGE) * float(best_val_raw) + BETA_BADGE * league_strength
-
-        # draw badge using the ADJUSTED score (number + color)
         R, G, B = [int(255*c) for c in div_color_tuple(best_val_adj)]
         bh = name_h_frac; bw = bh; by = 0.962 - bh
         fig.patches.append(mpatches.FancyBboxPatch(
@@ -1130,7 +1117,7 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val_adj))}",
                  fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Meta row — bold Team & League (segmented runs)
+    # Meta row — bold Team & League
     x_meta = 0.035
     y_meta = 0.905
     gap = 0.004
@@ -1148,12 +1135,11 @@ else:
         x_meta += _text_width_frac(fig, txt, fontsize=13.5,
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
-    # ----------------- chips + roles (tuned spacing) -----------------
+    # ----------------- chips + roles -----------------
     y = 0.874
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
-
     y -= 0.015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1206,7 +1192,7 @@ else:
         ("Smart Passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # ----------------- layout (top-anchored; panel heights flex) -----------------
+    # ----------------- layout -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
@@ -1228,7 +1214,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + left-align) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (left-align OUTSIDE labels) ============================
+
 
 
 
