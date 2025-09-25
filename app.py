@@ -1210,7 +1210,7 @@ _ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSIO
 
 
     # ----------------- render + download -----------------
-    st.pyplot(fig, use_container_width=True)
+st.pyplot(fig, use_container_width=True)
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=170, bbox_inches="tight", facecolor=fig.get_facecolor())
     st.download_button("⬇️ Download one-pager (PNG)",
