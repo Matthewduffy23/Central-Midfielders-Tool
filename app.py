@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (labels & titles perfectly left-aligned) ============================
 
 from io import BytesIO
 import numpy as np
@@ -886,7 +886,7 @@ else:
     # --------- palette / tokens ---------
     PAGE_BG   = "#0a0f1c"
     PANEL_BG  = "#11161C"
-    TRACK_BG  = "#222c3d"   # clearer contrast vs page bg
+    TRACK_BG  = "#222c3d"
     TEXT      = "#E5E7EB"
     ROLE_GREY = "#737373"
 
@@ -903,23 +903,25 @@ else:
         return tuple(((c1 + (c2-c1)*t)/255.0).astype(float))
 
     def _text_width_frac(fig, s, *, fontsize=8, weight="normal"):
-        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight, transform=fig.transFigure, alpha=0)
+        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
+                     transform=fig.transFigure, alpha=0)
         fig.canvas.draw(); r = fig.canvas.get_renderer()
         w_px = t.get_window_extent(renderer=r).width; t.remove()
         return w_px / fig.bbox.width
 
     def _text_height_frac(fig, s, *, fontsize=8, weight="normal"):
-        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight, transform=fig.transFigure, alpha=0)
+        t = fig.text(0, 0, s, fontsize=fontsize, fontweight=weight,
+                     transform=fig.transFigure, alpha=0)
         fig.canvas.draw(); r = fig.canvas.get_renderer()
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — **slightly tighter vertical spacing** (row_gap 0.026)
-    # NEW: max_per_row to cap chips per row (e.g., 5)
-    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006, max_per_row=None):
+    # chips (max 5 per row)
+    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900",
+                       max_rows=2, gap_x=0.006, max_per_row=None):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.026   # tightened
+        row_gap = 0.026
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -942,48 +944,43 @@ else:
             per_row += 1
         return y - row_gap
 
-    # roles row — font +1
+    # roles — slightly squarer corners
     def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
-
         x0 = x = 0.035
         row_gap = 0.041
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
-
         for r, v in sorted(rs.items(), key=lambda kv: -kv[1])[:12]:
             text_w = _text_width_frac(fig, r, fontsize=fs, weight="800")
             text_h = _text_height_frac(fig, "Hg", fontsize=fs, weight="800")
             role_w = text_w + pad_x*2
             role_h = text_h + pad_y*2
-
             num_text = f"{int(round(v))}"
             num_wt = _text_width_frac(fig, num_text, fontsize=fs-0.6, weight="900")
             num_ht = _text_height_frac(fig, "Hg", fontsize=fs-0.6, weight="900")
             num_w  = num_wt + pad_x*2 * 0.9
             num_h  = num_ht + pad_y*2 * 0.9
-
             total = role_w + gap + num_w
             if x + total > 0.965:
                 x = x0; y -= row_gap
-
-            fig.patches.append(mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
-                              boxstyle=f"round,pad=0.001,rounding_size={role_h*0.25}",
-                              transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none"))
+            fig.patches.append(mpatches.FancyBboxPatch(
+                (x, y - role_h*0.78), role_w, role_h,
+                boxstyle=f"round,pad=0.001,rounding_size={role_h*0.25}",
+                transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none"))
             fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight="800")
-
             R,G,B = [int(255*c) for c in div_color_tuple(v)]
             bx = x + role_w + gap
-            fig.patches.append(mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
-                              boxstyle=f"round,pad=0.001,rounding_size={num_h*0.25}",
-                              transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
+            fig.patches.append(mpatches.FancyBboxPatch(
+                (bx, y - num_h*0.78), num_w, num_h,
+                boxstyle=f"round,pad=0.001,rounding_size={num_h*0.25}",
+                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
             fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
                      va="center", ha="center", fontweight="900")
-
             x = bx + num_w + 0.010
         return y - row_gap
 
@@ -1004,14 +1001,40 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
+    # -------- bars & layout tokens --------
     BAR_PX = 24
     GAP_PX = 6
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
-    LABEL_FS = 10.6  # metric label font size (up from 10.6)
+    LABEL_FS = 10.6  # metric label font size
+
+    def _title_aligned_with_labels(fig, ax, title_text, *, y_offset=0.012, fs=20):
+        """
+        Draw title OUTSIDE the axes, with its left edge aligned to the left edge
+        of the (outside) y tick labels. Works per-axes.
+        """
+        fig.canvas.draw()
+        r = fig.canvas.get_renderer()
+        # left-most x of all yticklabels in pixels
+        lbl_extents = [lbl.get_window_extent(renderer=r) for lbl in ax.get_yticklabels() if lbl.get_text()]
+        if lbl_extents:
+            min_x_px = min(e.x0 for e in lbl_extents)
+        else:
+            # fallback: panel left
+            min_x_px = ax.get_window_extent(renderer=r).x0
+        # convert pixel -> figure fraction
+        x_fig = (min_x_px - fig.bbox.x0) / fig.bbox.width
+        # y just above the axes top
+        ax_pos = ax.get_position()
+        y_fig = ax_pos.y1 + y_offset
+        fig.text(x_fig, y_fig, title_text, color=TEXT, fontsize=fs, fontweight="900",
+                 ha="left", va="bottom")
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
+        """
+        Labels stay OUTSIDE on the left. Titles are drawn OUTSIDE above the panel,
+        left-aligned to those labels.
+        """
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
@@ -1034,22 +1057,27 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # tracks with a tiny separation
+        # tracks
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
 
+        # bars + value labels
         for yi, v, t in zip(y_idx, pcts, texts):
             ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=8.5, weight="600")
+            ax.text(1.0, yi, t, va="center", ha="left",
+                    color="#0B0B0B", fontsize=8.5, weight="600")
 
-            ax.set_yticks(y_idx)
-            ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+        # metric names OUTSIDE, left-aligned in their gutter
+        ax.set_yticks(y_idx)
+        ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+        for lbl in ax.get_yticklabels():
+            lbl.set_horizontalalignment("left")
+        ax.tick_params(axis="y", pad=4)
 
-
-
+        # cosmetics
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
@@ -1057,8 +1085,10 @@ else:
         # midline at 50th percentile
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # title + subtle underline (Axes coords)
-        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
+        # draw title OUTSIDE and aligned to label gutter
+        _title_aligned_with_labels(fig, ax, title, fs=20)
+
+        # subtle underline across panel top (inside axes, so it sits just under the external title)
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
@@ -1085,7 +1115,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name — and league-adjusted badge beside it
+    # Name + league-adjusted badge
     name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1095,35 +1125,24 @@ else:
     name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
-    # >>> BADGE (β=0.40 league-adjusted) <<<
     if isinstance(role_scores, dict) and role_scores:
-        # raw best role score (within-league)
         _, best_val_raw = max(role_scores.items(), key=lambda kv: kv[1])
-
-        # league strength from global table; default 50 if unknown
         _ls_map = globals().get("LEAGUE_STRENGTHS", {})
         league_strength = float(_ls_map.get(league, 50.0))
-
-        # fixed beta for the badge only
         BETA_BADGE = 0.40
         best_val_adj = (1.0 - BETA_BADGE) * float(best_val_raw) + BETA_BADGE * league_strength
-
-        # draw badge using the ADJUSTED score (number + color)
         R, G, B = [int(255*c) for c in div_color_tuple(best_val_adj)]
         bh = name_h_frac; bw = bh; by = 0.962 - bh
         fig.patches.append(mpatches.FancyBboxPatch(
             (badge_x, by), bw, bh,
             boxstyle="round,pad=0.001,rounding_size=0.011",
             transform=fig.transFigure,
-            facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"
-        ))
+            facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val_adj))}",
                  fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # (2) Meta row with **bold Team & League** (draw as segmented text runs)
-    x_meta = 0.035
-    y_meta = 0.905
-    gap = 0.004  # small spacer between runs
+    # Meta row (Team & League bold)
+    x_meta = 0.035; y_meta = 0.905; gap = 0.004
     runs = [
         (f"{pos} — ", "normal"),
         (team, "bold"),
@@ -1134,17 +1153,16 @@ else:
     ]
     for txt, weight in runs:
         fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=13,
-                 fontweight=("900" if weight == "bold" else "normal"), ha="left", va="center")
+                 fontweight=("900" if weight == "bold" else "normal"),
+                 ha="left", va="center")
         x_meta += _text_width_frac(fig, txt, fontsize=13.5,
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
-    # ----------------- chips + roles (tuned spacing) -----------------
+    # ----------------- chips + roles -----------------
     y = 0.874
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
-
-    # (3) roles row brought slightly closer to chips
     y -= 0.015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1197,11 +1215,11 @@ else:
         ("Smart Passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-# ----------------- layout (top-anchored; panel heights flex) -----------------
+    # ----------------- layout -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     TOP = 0.66
-    V_GAP_FRAC = 0.05
+    V_GAP_FRAC = 0.050
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
@@ -1219,7 +1237,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (labels & titles perfectly left-aligned) ============================
+
 
 
 
