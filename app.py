@@ -1048,8 +1048,7 @@ else:
             ax.set_yticks(y_idx)
             ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold", ha="left")
 
-            # Push them slightly left by adjusting label position
-            ax.tick_params(axis="y", pad=6)  # (optional) adjust spacing from bar
+
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
