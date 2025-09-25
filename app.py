@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + badge β=0.40) ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,7 +914,7 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — marginally closer
+    # chip rows
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
@@ -938,7 +938,7 @@ else:
             x += w + gap_x
         return y - row_gap
 
-    # roles row — font +1
+    # roles row
     def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
@@ -983,6 +983,22 @@ else:
             x = bx + num_w + 0.010
         return y - row_gap
 
+    # ----- badge score with fixed β = 0.40 (league adjustment only for the badge) -----
+    def role_scores_with_fixed_beta(row, beta_fixed: float = 0.40) -> dict:
+        out = {}
+        for role, rd in ROLES.items():
+            total_w = sum(rd["metrics"].values()) or 1.0
+            metric_score = 0.0
+            for m, w in rd["metrics"].items():
+                pct_col = f"{m} Percentile"
+                if pct_col in row.index and pd.notna(row[pct_col]):
+                    metric_score += float(row[pct_col]) * w
+            metric_score /= total_w
+            league_scaled = float(row.get("League Strength", 50.0))
+            adjusted = (1 - beta_fixed) * metric_score + beta_fixed * league_scaled
+            out[role] = adjusted
+        return out
+
     # percentiles + actuals
     def pct_of(metric: str) -> float:
         if isinstance(pct_extra, dict) and metric in pct_extra and pd.notna(pct_extra[metric]):
@@ -1000,12 +1016,12 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
+    # -------- SAME PIXEL BAR HEIGHT --------
     BAR_PX = 24
     GAP_PX = 6
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
-    LABEL_FS = 11.0  # metric label font size (up from 10.6)
+    LABEL_FS = 11.0
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
         fig.canvas.draw()
@@ -1030,7 +1046,7 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # tracks with a tiny separation
+        # tracks
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
@@ -1047,10 +1063,8 @@ else:
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
 
-        # midline at 50th percentile
+        # 50th line + title underline
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
-
-        # title + subtle underline (Axes coords)
         ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
@@ -1078,7 +1092,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — +1 size; badge aligned
+    # Name + badge — uses fixed β for badge
     name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1088,8 +1102,9 @@ else:
     name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
-    if isinstance(role_scores, dict) and role_scores:
-        _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
+    badge_scores = role_scores_with_fixed_beta(player_row.iloc[0], beta_fixed=0.40)
+    if isinstance(badge_scores, dict) and badge_scores:
+        _, best_val = max(badge_scores.items(), key=lambda kv: kv[1])
         R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
         bh = name_h_frac
         bw = bh
@@ -1100,7 +1115,7 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
                  fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Info row (nudged up)
+    # Info row
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
@@ -1108,13 +1123,12 @@ else:
     )
     fig.text(0.035, 0.905, meta, color="#FFFFFF", fontsize=12.2)
 
-    # ----------------- chips + roles (tuned spacing) -----------------
+    # ----------------- chips + roles -----------------
     y = 0.868
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
-    # roles row (slightly higher than before)
     y -= 0.003
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1188,7 +1202,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + badge β=0.40) ============================
+
 
 
 
