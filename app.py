@@ -1106,7 +1106,7 @@ else:
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.90, meta, color="#FFFFFF", fontsize=12.2)
+    fig.text(0.035, 0.905, meta, color="#FFFFFF", fontsize=12.2)
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.868
@@ -1115,7 +1115,7 @@ else:
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
     # roles row (slightly higher than before)
-    y -= 0.005
+    y -= 0.003
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
@@ -1169,8 +1169,8 @@ else:
     # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
-    TOP = 0.65
-    V_GAP_FRAC = 0.031
+    TOP = 0.66
+    V_GAP_FRAC = 0.030
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
