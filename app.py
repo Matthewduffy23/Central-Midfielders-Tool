@@ -1001,8 +1001,8 @@ else:
         return v, f"{v:.2f}"
 
     # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
-    BAR_PX = 20   # bar thickness in pixels (tweak here if you want)
-    GAP_PX = 7   # gap between bars in pixels
+    BAR_PX = 24   # bar thickness in pixels (tweak here if you want)
+    GAP_PX = 6   # gap between bars in pixels
     STEP_PX = BAR_PX + GAP_PX
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
