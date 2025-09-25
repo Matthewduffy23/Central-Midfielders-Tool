@@ -1127,7 +1127,7 @@ else:
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
     # (3) roles row brought slightly closer to chips (was 0.003)
-    y -= 0.0015
+    y -= 0.003
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
