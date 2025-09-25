@@ -893,8 +893,8 @@ else:
     CHIP_G_BG = "#22C55E"; CHIP_R_BG = "#EF4444"; CHIP_B_BG = "#60A5FA"
 
     # --------- layout / padding knobs ---------
-    NAME_X   = 0.045   # more breathing room on the left
-    META_X   = 0.045
+    NAME_X   = 0.055   # more breathing room on the left
+    META_X   = 0.055
     CHIP_X0  = 0.055   # chips/roles start x
     GUTTER_PAD  = 0.006
 
@@ -1242,21 +1242,6 @@ else:
                        mime="image/png")
 
 # ============================ END — WIDER PANELS, SMALLER CENTER GAP, EXTRA TOP-LEFT PADDING ============================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
