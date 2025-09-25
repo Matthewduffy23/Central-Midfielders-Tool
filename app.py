@@ -1206,14 +1206,22 @@ def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIV
 # Right column (draw, then fill to match left-bottom)
 right_bottom = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
 
-# If the right panel ends higher, add a background filler so it reaches the same bottom
+# ---- Fill any gap so the right panel visually reaches the same bottom as the left ----
+# (Work directly in figure coordinates; no extra axes needed.)
 if right_bottom > def_bottom:
-    filler_h = right_bottom - def_bottom
-    ax_fill = fig.add_axes([RIGHT, def_bottom, WIDTH_R, filler_h])
-    ax_fill.set_facecolor(PANEL_BG)
-    ax_fill.set_xticks([]); ax_fill.set_yticks([])
-    for sp in ax_fill.spines.values():
-        sp.set_visible(False)
+    gap_h = right_bottom - def_bottom  # how much shorter the right panel is
+    fig.patches.append(
+        mpatches.Rectangle(
+            (RIGHT, def_bottom),      # (x, y) in figure frac coords
+            WIDTH_R,                  # width
+            gap_h,                    # height to fill
+            transform=fig.transFigure,
+            facecolor=PANEL_BG,
+            edgecolor="none",
+            zorder=0.5,               # beneath labels, above page bg
+        )
+    )
+
 
 
     # ----------------- render + download -----------------
