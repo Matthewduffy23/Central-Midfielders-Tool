@@ -1198,6 +1198,7 @@ else:
 
 
 
+
 # ----------------- (A) SCATTERPLOT — Goals vs xG -----------------
 st.markdown("---")
 st.header("📈 Scatterplot")
