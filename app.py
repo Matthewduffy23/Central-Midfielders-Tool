@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (final, fixed) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5) ============================
 
 from io import BytesIO
 import numpy as np
@@ -884,24 +884,13 @@ if player_row.empty:
     st.info("Pick a player above.")
 else:
     # --------- palette / tokens ---------
-    PAGE_BG   = "#0a0f1c"   # page background
-    PANEL_BG  = "#11161C"   # each panel background
-    TRACK_BG  = "#1a2233"   # track behind each bar
-    TEXT      = "#E5E7EB"   # default text
-    ROLE_GREY = "#737373"   # role-chip grey
+    PAGE_BG   = "#0a0f1c"
+    PANEL_BG  = "#11161C"
+    TRACK_BG  = "#222c3d"   # (1) slightly lighter track for better contrast
+    TEXT      = "#E5E7EB"
+    ROLE_GREY = "#737373"
 
-    CHIP_G_BG = "#22C55E"   # strengths
-    CHIP_R_BG = "#EF4444"   # weaknesses
-    CHIP_B_BG = "#60A5FA"   # styles
-
-    # --------- typographic tokens ---------
-    SECTION_TITLE_FS   = 20  # Attacking / Defensive / Possession (bold)
-    NAME_FS            = 28  # player name (bold)
-    META_FS            = 12.2
-    METRIC_LABEL_FS    = 10.6
-    VALUE_FS           = 9.0
-    ROLE_FS            = 10.6   # role row font (name); score auto = ROLE_FS-0.6
-    CHIP_FS            = 10.1   # strengths / weaknesses / styles
+    CHIP_G_BG = "#22C55E"; CHIP_R_BG = "#EF4444"; CHIP_B_BG = "#60A5FA"
 
     # ----------------- helpers -----------------
     def div_color_tuple(v: float):
@@ -926,10 +915,10 @@ else:
         return h_px / fig.bbox.height
 
     # chip rows — marginally closer
-    def chip_row_exact(fig, items, y, bg, *, fs=CHIP_FS, weight="900", max_rows=2, gap_x=0.006):
+    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.028   # slightly tighter (but readable)
+        row_gap = 0.028
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -949,14 +938,14 @@ else:
             x += w + gap_x
         return y - row_gap
 
-    # roles row — font +1, slightly larger row spacing (for breath)
-    def roles_row_tight(fig, rs: dict, y, *, fs=ROLE_FS):
+    # roles row — font +1
+    def roles_row_tight(fig, rs: dict, y, *, fs=10.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
 
         x0 = x = 0.035
-        row_gap = 0.041  # slightly larger than chip rows
+        row_gap = 0.041
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
@@ -1014,14 +1003,11 @@ else:
     # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
     BAR_PX = 24
     GAP_PX = 6
-    SEP_PX = 2           # subtle separator thickness (between tracks)
+    SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
+    LABEL_FS = 11.0  # (2) metric label font size up from 10.6
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
-        """
-        Uniform bar thickness and spacing in *pixels* across panels.
-        The axis height flexes with n_rows so spacing stays consistent.
-        """
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
@@ -1044,36 +1030,29 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # Tracks with subtle separators (FIX uses hlines so x/y lengths match)
+        # tracks with a tiny “breathing” separation
         track_h = bar_du + gap_du - sep_du
-        sep_color = "#0f141e"
         for yi in y_idx:
-            ax.add_patch(
-                mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
-                                   facecolor=TRACK_BG, edgecolor='none', zorder=1)
-            )
-            y_sep = yi + (track_h/2) + sep_du/2
-            ax.hlines(y_sep, xmin=0, xmax=100, colors=sep_color,
-                      linewidth=0.6, alpha=0.9, zorder=2)
+            ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
+                                            facecolor=TRACK_BG, edgecolor='none'))
 
-        # Data bars + inline values
         for yi, v, t in zip(y_idx, pcts, texts):
-            ax.add_patch(
-                mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
-                                   facecolor=div_color_tuple(v), edgecolor='none', zorder=3)
-            )
-            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B",
-                    fontsize=VALUE_FS, weight="900", zorder=4)
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
+                                            facecolor=div_color_tuple(v), edgecolor='none'))
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
 
         ax.set_yticks(y_idx)
-        ax.set_yticklabels(labels, color=TEXT, fontsize=METRIC_LABEL_FS, fontweight="bold")
-
+        ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
 
-        ax.axvline(50, color="#9AA4B2", linestyle=":", linewidth=1.2, zorder=1)
-        ax.set_title(title, color=TEXT, fontsize=SECTION_TITLE_FS, pad=8, fontweight="900")
+        # midline at 50th percentile
+        ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
+
+        # (3) panel title + subtle underline (thin rule at the very top inside the axis)
+        ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
+        ax.axhline(1.0, transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
 
@@ -1091,7 +1070,6 @@ else:
     matches= int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
     goals  = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
 
-    # overall xG (prefer 'xG' if present)
     if "xG" in ply.index and pd.notna(ply["xG"]):
         xg_total = float(ply["xG"])
     else:
@@ -1100,9 +1078,10 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — larger & aligned on the same baseline
+    # Name + badge — +1 size; badge aligned
+    name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
-                         fontsize=NAME_FS, fontweight="900", va="top", ha="left")
+                         fontsize=name_fs, fontweight="900", va="top", ha="left")
     fig.canvas.draw(); r = fig.canvas.get_renderer()
     name_bbox = name_text.get_window_extent(renderer=r)
     name_w_frac = name_bbox.width / fig.bbox.width
@@ -1115,31 +1094,29 @@ else:
         bh = name_h_frac
         bw = bh
         by = 0.962 - bh
-        fig.patches.append(
-            mpatches.FancyBboxPatch((badge_x, by), bw, bh,
-                boxstyle="round,pad=0.001,rounding_size=0.011",
-                transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
-        )
+        fig.patches.append(mpatches.FancyBboxPatch((badge_x, by), bw, bh,
+                          boxstyle="round,pad=0.001,rounding_size=0.011",
+                          transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
                  fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Info row — moved up a touch
+    # (4) Info row moved UP slightly (closer to the title/badge)
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.905, meta, color="#FFFFFF", fontsize=META_FS)
+    fig.text(0.035, 0.916, meta, color="#FFFFFF", fontsize=12.2)
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.868
-    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=CHIP_FS)
-    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=CHIP_FS)
-    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=CHIP_FS)
+    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
+    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
+    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
-    # Roles row nudged DOWN slightly for breathing room
-    y -= 0.01
-    y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=ROLE_FS)
+    # (5) Roles row nudged DOWN a bit less than before (net effect: visually higher / better align)
+    y -= 0.005
+    y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
     ATTACKING = []
@@ -1198,6 +1175,7 @@ else:
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
     def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
+
     # Right column
     _ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
 
@@ -1210,7 +1188,7 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (final, fixed) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5) ============================
 
 
 
