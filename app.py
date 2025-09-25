@@ -1078,7 +1078,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — name size; badge aligned
+    # Name — and league-adjusted badge beside it
     name_fs = 28
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1088,24 +1088,35 @@ else:
     name_h_frac = name_bbox.height / fig.bbox.height
     badge_x = 0.035 + name_w_frac + 0.010
 
+    # >>> BADGE (β=0.40 league-adjusted) <<<
     if isinstance(role_scores, dict) and role_scores:
-        _, best_val = max(role_scores.items(), key=lambda kv: kv[1])
-        R,G,B = [int(255*c) for c in div_color_tuple(best_val)]
-        bh = name_h_frac
-        bw = bh
-        by = 0.962 - bh
-        fig.patches.append(mpatches.FancyBboxPatch((badge_x, by), bw, bh,
-                          boxstyle="round,pad=0.001,rounding_size=0.011",
-                          transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
-        # (1) **Badge number size +0.8 pt**
-        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
+        # raw best role score (within-league)
+        _, best_val_raw = max(role_scores.items(), key=lambda kv: kv[1])
+
+        # league strength from global table; default 50 if unknown
+        _ls_map = globals().get("LEAGUE_STRENGTHS", {})
+        league_strength = float(_ls_map.get(league, 50.0))
+
+        # fixed beta for the badge only
+        BETA_BADGE = 0.40
+        best_val_adj = (1.0 - BETA_BADGE) * float(best_val_raw) + BETA_BADGE * league_strength
+
+        # draw badge using the ADJUSTED score (number + color)
+        R, G, B = [int(255*c) for c in div_color_tuple(best_val_adj)]
+        bh = name_h_frac; bw = bh; by = 0.962 - bh
+        fig.patches.append(mpatches.FancyBboxPatch(
+            (badge_x, by), bw, bh,
+            boxstyle="round,pad=0.001,rounding_size=0.011",
+            transform=fig.transFigure,
+            facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"
+        ))
+        fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val_adj))}",
                  fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
     # (2) Meta row with **bold Team & League** (draw as segmented text runs)
     x_meta = 0.035
     y_meta = 0.905
     gap = 0.004  # small spacer between runs
-
     runs = [
         (f"{pos} — ", "normal"),
         (team, "bold"),
