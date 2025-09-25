@@ -1117,7 +1117,7 @@ else:
     for txt, weight in runs:
         fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=12.2,
                  fontweight=("900" if weight == "bold" else "normal"), ha="left", va="center")
-        x_meta += _text_width_frac(fig, txt, fontsize=12.2,
+        x_meta += _text_width_frac(fig, txt, fontsize=13.5,
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles (tuned spacing) -----------------
@@ -1127,7 +1127,7 @@ else:
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
     # (3) roles row brought slightly closer to chips (was 0.003)
-    y -= 0.003
+    y -= 0.005
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
     # ----------------- metric groups -----------------
