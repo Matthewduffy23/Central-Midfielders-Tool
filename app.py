@@ -1045,8 +1045,11 @@ else:
                                             facecolor=div_color_tuple(v), edgecolor='none'))
             ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=8.5, weight="600")
 
-        ax.set_yticks(y_idx)
-        ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold")
+            ax.set_yticks(y_idx)
+            ax.set_yticklabels(labels, color=TEXT, fontsize=LABEL_FS, fontweight="bold", ha="left")
+
+            # Push them slightly left by adjusting label position
+            ax.tick_params(axis="y", pad=6)  # (optional) adjust spacing from bar
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
