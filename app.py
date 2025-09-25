@@ -1011,7 +1011,7 @@ else:
     VALUE_FS        = 9.8      # values on bars (bold)
     TITLE_FS        = 21       # section titles +1 and bold
 
-    def bar_panel(fig, left, top, width, n_rows, title, triples):
+def bar_panel(fig, left, top, width, n_rows, title, triples):
     fig.canvas.draw()
     fig_px_h = fig.bbox.height
 
