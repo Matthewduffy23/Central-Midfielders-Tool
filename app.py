@@ -1087,7 +1087,7 @@ else:
         # title aligned to the same gutter start
         title_y = bottom + ax_h_frac + 0.008
         fig.text(left + GUTTER_PAD/2, title_y, title,
-                 color= #ff66c4, fontsize=TITLE_FS, fontweight="900", ha="left", va="bottom")
+                 color= "#ff66c4", fontsize=TITLE_FS, fontweight="900", ha="left", va="bottom")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
