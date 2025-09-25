@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — PERFECT UNIFORM PIXEL BARS & GAPS ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,11 +914,11 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — slightly reduced (not too tight)
+    # chip rows — slightly tighter (not cramped)
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.031   # softer reduction than last time
+        row_gap = 0.031   # slightly reduced vs original
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -945,7 +945,7 @@ else:
         if not rs: return y
 
         x0 = x = 0.035
-        row_gap = 0.037  # slightly reduced vs original
+        row_gap = 0.037  # slightly reduced
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
@@ -1000,21 +1000,27 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- Exact same pixel bar height & pixel gap in all panels (Attacking is reference) --------
-    # These are *Attacking data-units*; they’re converted to pixels in Attacking, and those
-    # pixel targets are enforced in all panels.
-    BASE_BAR_H = 0.72
-    BASE_GAP_H = 0.08
+    # -------- EXACT SAME PIXEL BAR HEIGHT & GAP; PANEL HEIGHT FLEXES WITH ROW COUNT --------
+    BAR_PX = 16   # bar thickness in pixels (tweak here if you want)
+    GAP_PX = 8    # gap between bars in pixels
+    STEP_PX = BAR_PX + GAP_PX
 
-    def bar_panel(fig, left, bottom, width, height, title, triples,
-                  ref_n, ref_height, base_bar_h=BASE_BAR_H, base_gap_h=BASE_GAP_H):
+    def bar_panel(fig, left, top, width, n_rows, title, triples):
         """
-        1) Compute Attacking bar / gap in pixels.
-        2) Convert those pixels into current panel data-units.
-        3) Position row centers with a fixed pixel step (bar_px + gap_px).
-        Result: identical bar height and spacing across panels.
+        Create an axis whose pixel height is n_rows * STEP_PX, and draw bars so each
+        bar is BAR_PX pixels tall with GAP_PX pixels between rows.
+        `top` is the figure fraction for the axis TOP edge; axis bottom is computed.
+        Returns the computed bottom (for stacking).
         """
-        ax = fig.add_axes([left, bottom, width, height])
+        # Figure pixel height
+        fig.canvas.draw()
+        fig_px_h = fig.bbox.height
+
+        # Axis height as figure fraction
+        ax_h_frac = (n_rows * STEP_PX) / fig_px_h
+        bottom = top - ax_h_frac
+
+        ax = fig.add_axes([left, bottom, width, ax_h_frac])
         ax.set_facecolor(PANEL_BG)
 
         labels = [t[0] for t in triples]
@@ -1022,46 +1028,33 @@ else:
         texts  = [t[2] for t in triples]
         n = len(labels)
 
-        # Prepare axes x-limits
+        # One data unit = one row step; set constant bar/gap in data units
+        bar_du = BAR_PX / STEP_PX
+        gap_du = GAP_PX / STEP_PX
+
         ax.set_xlim(0, 100)
+        ax.set_ylim(-0.5, n - 0.5)
 
-        # Figure pixel height and pixels-per-data-unit for ref and this panel
-        fig.canvas.draw()
-        fig_px_h = fig.bbox.height  # pixels
+        y_idx = np.arange(n)[::-1]  # top to bottom
 
-        ref_px_per_du  = (fig_px_h * ref_height) / max(ref_n, 1)
-        this_px_per_du = (fig_px_h * height)    / max(n, 1)
-
-        # Target pixel thickness/gap based on Attacking
-        bar_px = base_bar_h * ref_px_per_du
-        gap_px = base_gap_h * ref_px_per_du
-        step_px = bar_px + gap_px
-
-        # Convert to current panel data-units
-        bar_du  = bar_px  / max(this_px_per_du, 1e-6)
-        gap_du  = gap_px  / max(this_px_per_du, 1e-6)
-        step_du = step_px / max(this_px_per_du, 1e-6)
-
-        # Place centers with fixed pixel step (converted to DU)
-        y_centers = (np.arange(n)[::-1]) * step_du
-        ax.set_ylim(-step_du/2, (n-1)*step_du + step_du/2)  # snug around first/last rows
-
-        # Draw tracks + bars
-        for yc in y_centers:
-            ax.add_patch(mpatches.Rectangle((0, yc - bar_du/2 - gap_du/2), 100, bar_du + gap_du,
+        # Tracks & bars
+        for yi in y_idx:
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2 - gap_du/2), 100, bar_du + gap_du,
                                             facecolor=TRACK_BG, edgecolor='none'))
-        for yc, v, t in zip(y_centers, pcts, texts):
-            ax.add_patch(mpatches.Rectangle((0, yc - bar_du/2), v, bar_du,
+        for yi, v, t in zip(y_idx, pcts, texts):
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_du/2), v, bar_du,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yc, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
 
-        ax.set_yticks(y_centers)
+        ax.set_yticks(y_idx)
         ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
         ax.grid(False)
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=3)
         ax.set_title(title, color=TEXT, fontsize=18, pad=6, fontweight="900")  # +1 pt
+
+        return bottom
 
     # ----------------- figure & header -----------------
     W, H = 1500, 1080
@@ -1085,7 +1078,7 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name + badge — +2 pts, move meta down a touch
+    # Name + badge — +2 pts; meta moved down
     name_fs = 27  # was 25 → +2
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1109,7 +1102,7 @@ else:
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.898, meta, color="#FFFFFF", fontsize=12.2)  # nudged down from 0.912
+    fig.text(0.035, 0.898, meta, color="#FFFFFF", fontsize=12.2)  # slightly lower than before
 
     # ----------------- chips + roles (slightly tighter) -----------------
     y = 0.872
@@ -1166,19 +1159,18 @@ else:
         ("Smart passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # Layout — Attacking drives the reference pixel geometry
+    # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
-    HEIGHT_A_D, HEIGHT_P = 0.245, 0.525
-    BTM_A, BTM_D, BTM_P = 0.410, 0.130, 0.130
+    TOP = 0.655                    # common top for the three panels
+    V_GAP_FRAC = 0.030             # gap between Attacking and Defensive axes
 
-    REF_N = max(len(ATTACKING), 1)  # reference rows (Attacking)
-    REF_H = HEIGHT_A_D              # reference panel height (Attacking)
+    # Left column
+    att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking", ATTACKING)
+    def_bottom = bar_panel(fig, LEFT, att_bottom - V_GAP_FRAC, WIDTH_L, len(DEFENSIVE), "Defensive", DEFENSIVE)
 
-    # Panels (uniform bar height + spacing, pixel-true)
-    bar_panel(fig, LEFT,  BTM_A, WIDTH_L, HEIGHT_A_D, "Attacking",  ATTACKING,  ref_n=REF_N, ref_height=REF_H)
-    bar_panel(fig, LEFT,  BTM_D, WIDTH_L, HEIGHT_A_D, "Defensive",  DEFENSIVE,  ref_n=REF_N, ref_height=REF_H)
-    bar_panel(fig, RIGHT, BTM_P, WIDTH_R, HEIGHT_P,  "Possession", POSSESSION, ref_n=REF_N, ref_height=REF_H)
+    # Right column
+    _ = bar_panel(fig, RIGHT, TOP, WIDTH_R, len(POSSESSION), "Possession", POSSESSION)
 
     # ----------------- render + download -----------------
     st.pyplot(fig, use_container_width=True)
@@ -1188,7 +1180,8 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
-# ============================ END — PERFECT UNIFORM PIXEL BARS & GAPS ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS ============================
+
 
 
 
