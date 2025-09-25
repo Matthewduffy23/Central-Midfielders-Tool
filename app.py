@@ -1050,7 +1050,7 @@ else:
         # midline at 50th percentile
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # title + subtle underline (use Axes coords safely)
+        # title + subtle underline (Axes coords)
         ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
@@ -1189,6 +1189,7 @@ else:
                        mime="image/png")
 
 # ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed) ============================
+
 
 
 
