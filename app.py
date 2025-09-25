@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (left-aligned gutters) ============================
+# ============================ (E) ONE-PAGER — WIDER PANELS, SMALLER CENTER GAP, EXTRA TOP-LEFT PADDING ============================
 
 from io import BytesIO
 import numpy as np
@@ -891,6 +891,12 @@ else:
     ROLE_GREY = "#737373"
 
     CHIP_G_BG = "#22C55E"; CHIP_R_BG = "#EF4444"; CHIP_B_BG = "#60A5FA"
+
+    # --------- layout / padding knobs ---------
+    NAME_X   = 0.045   # more breathing room on the left
+    META_X   = 0.045
+    CHIP_X0  = 0.045   # chips/roles start x
+    GUTTER_PAD  = 0.006
 
     # ----------------- helpers -----------------
     def div_color_tuple(v: float):
@@ -914,10 +920,10 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # chip rows — max chips per row + slightly tighter spacing
+    # chips — max_per_row + slightly tighter spacing
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006, max_per_row=None):
         if not items: return y
-        x0 = x = 0.035
+        x0 = x = CHIP_X0
         row_gap = 0.026
         pad_x = 0.004
         pad_y = 0.002
@@ -947,7 +953,7 @@ else:
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
 
-        x0 = x = 0.035
+        x0 = x = CHIP_X0
         row_gap = 0.041
         gap = 0.003
         pad_x = 0.006
@@ -1009,30 +1015,23 @@ else:
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
 
-    LABEL_FS    = 10.6   # metric label font size
-    VALUE_FS    = 8.5    # small number label on bars
-    TITLE_FS    = 20     # section title font size
-    GUTTER_PAD  = 0.006  # extra pad inside the left gutter for text start
+    LABEL_FS    = 10.6
+    VALUE_FS    = 8.5
+    TITLE_FS    = 20
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
-        """
-        Draws a 'panel' composed of:
-          - a full-width background panel (for the card look)
-          - a bars axis *inside* that panel, leaving a LEFT GUTTER
-          - metric labels rendered in the gutter (left-aligned)
-          - section title aligned to the exact same gutter start
-        """
+        """Panel with left gutter (labels + title share the same left start)."""
         fig.canvas.draw()
         fig_px_h = fig.bbox.height
 
-        # Height of this panel in fig fraction
+        # panel height in fig fraction
         ax_h_frac = (n_rows * STEP_PX) / fig_px_h
         bottom = top - ax_h_frac
 
-        # Compute the max label width (in figure fraction) to size the gutter
+        # Compute max label width to size the gutter
         labels = [t[0] for t in triples]
         max_label_w_frac = max(_text_width_frac(fig, s, fontsize=LABEL_FS, weight="bold") for s in labels) if labels else 0
-        gutter_w = max_label_w_frac + GUTTER_PAD  # figure fraction (absolute, not relative to panel width)
+        gutter_w = max_label_w_frac + GUTTER_PAD
 
         # Panel background (full width)
         ax_panel = fig.add_axes([left, bottom, width, ax_h_frac])
@@ -1040,13 +1039,12 @@ else:
         ax_panel.set_xticks([]); ax_panel.set_yticks([])
         for sp in ax_panel.spines.values(): sp.set_visible(False)
 
-        # Bars axis: sits inside panel, shifted right by the gutter
+        # Bars axis (to the right of the gutter)
         bar_left  = left + gutter_w
-        bar_width = max(0.001, width - gutter_w - 0.004)  # a tiny right margin
+        bar_width = max(0.001, width - gutter_w - 0.004)  # tiny right margin
         ax = fig.add_axes([bar_left, bottom, bar_width, ax_h_frac])
         ax.set_facecolor(PANEL_BG)
 
-        # Prepare data
         pcts  = [float(np.nan_to_num(t[1], nan=0.0)) for t in triples]
         texts = [t[2] for t in triples]
         n = len(labels)
@@ -1059,7 +1057,7 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # tracks with a tiny separation
+        # tracks
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
@@ -1071,28 +1069,25 @@ else:
                                             facecolor=div_color_tuple(v), edgecolor='none'))
             ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=VALUE_FS, weight="600")
 
-        # remove ticks completely (labels are drawn in the gutter, not here)
+        # clean axis
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="both", length=0, labelsize=0)
         ax.grid(False)
 
-        # midline at 50th percentile
+        # midline
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # -------- render metric labels in the gutter (left-aligned) --------
-        # Convert each row's y center (data coords) to figure Y
-        # row centers are yi at integers; normalized to [0,1] in axis: (yi + 0.5) / n
+        # metric labels in gutter (left-aligned)
         for yi, lab in zip(y_idx, labels):
             y_fig = bottom + ax_h_frac * ((yi + 0.5) / max(1, n))
             fig.text(left + GUTTER_PAD/2, y_fig, lab,
                      color=TEXT, fontsize=LABEL_FS, fontweight="bold",
                      va="center", ha="left")
 
-        # -------- title aligned to the same gutter start --------
-        title_y = bottom + ax_h_frac + 0.010  # a little above the panel
+        # title aligned to the same gutter start
+        title_y = bottom + ax_h_frac + 0.012
         fig.text(left + GUTTER_PAD/2, title_y, title,
                  color=TEXT, fontsize=TITLE_FS, fontweight="900", ha="left", va="bottom")
-        # subtle underline spans the bar axis only
         ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
@@ -1119,17 +1114,16 @@ else:
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
     assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
-    # Name — and league-adjusted badge beside it
+    # Name + league-adjusted badge
     name_fs = 28
-    name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
+    name_text = fig.text(NAME_X, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
     fig.canvas.draw(); r = fig.canvas.get_renderer()
     name_bbox = name_text.get_window_extent(renderer=r)
     name_w_frac = name_bbox.width / fig.bbox.width
     name_h_frac = name_bbox.height / fig.bbox.height
-    badge_x = 0.035 + name_w_frac + 0.010
+    badge_x = NAME_X + name_w_frac + 0.010
 
-    # >>> BADGE (β=0.40 league-adjusted) <<<
     if isinstance(role_scores, dict) and role_scores:
         _, best_val_raw = max(role_scores.items(), key=lambda kv: kv[1])
         _ls_map = globals().get("LEAGUE_STRENGTHS", {})
@@ -1148,8 +1142,8 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val_adj))}",
                  fontsize=18.6, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # Meta row with bold Team & League
-    x_meta = 0.035; y_meta = 0.905; gap = 0.004
+    # Meta row (more left padding)
+    x_meta = META_X; y_meta = 0.905; gap = 0.004
     runs = [
         (f"{pos} — ", "normal"),
         (team, "bold"),
@@ -1165,11 +1159,10 @@ else:
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles -----------------
-    y = 0.874
+    y = 0.878  # a touch lower to create more breathing room under meta
     y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
-
     y -= 0.015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1222,9 +1215,13 @@ else:
         ("Smart Passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # ----------------- layout (top-anchored; panel heights flex) -----------------
-    LEFT, RIGHT = 0.060, 0.540
-    WIDTH_L, WIDTH_R = 0.37, 0.36
+    # ----------------- layout (wider cards, smaller middle gap) -----------------
+    LEFT = 0.050
+    WIDTH_L = 0.41
+    MID_GAP = 0.040
+    RIGHT = LEFT + WIDTH_L + MID_GAP
+    WIDTH_R = 0.41
+
     TOP = 0.66
     V_GAP_FRAC = 0.050
 
@@ -1244,7 +1241,8 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (left-aligned gutters) ============================
+# ============================ END — WIDER PANELS, SMALLER CENTER GAP, EXTRA TOP-LEFT PADDING ============================
+
 
 
 
