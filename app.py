@@ -1106,7 +1106,7 @@ else:
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
         f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
     )
-    fig.text(0.035, 0.916, meta, color="#FFFFFF", fontsize=12.2)
+    fig.text(0.035, 0.90, meta, color="#FFFFFF", fontsize=12.2)
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.868
@@ -1169,8 +1169,8 @@ else:
     # ----------------- layout (top-anchored; panel heights flex) -----------------
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
-    TOP = 0.64
-    V_GAP_FRAC = 0.030
+    TOP = 0.65
+    V_GAP_FRAC = 0.031
 
     # Left column
     att_bottom = bar_panel(fig, LEFT, TOP, WIDTH_L, len(ATTACKING), "Attacking",  ATTACKING)
