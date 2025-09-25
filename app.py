@@ -915,19 +915,22 @@ else:
         return h_px / fig.bbox.height
 
     # chip rows — **slightly tighter vertical spacing** (row_gap 0.026)
-    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
+    # NEW: max_per_row to cap chips per row (e.g., 5)
+    def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006, max_per_row=None):
         if not items: return y
         x0 = x = 0.035
         row_gap = 0.026   # tightened
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
+        per_row = 0
         for s in items[:60]:
             w = _text_width_frac(fig, s, fontsize=fs, weight=weight) + pad_x*2
-            if x + w > 0.965:
+            need_wrap = (x + w > 0.965) or (max_per_row and per_row >= max_per_row)
+            if need_wrap:
                 max_rows -= 1
                 if max_rows <= 0: break
-                x = x0; y -= row_gap
+                x = x0; y -= row_gap; per_row = 0
             fig.patches.append(
                 mpatches.FancyBboxPatch((x, y - h*0.74), w, h,
                     boxstyle=f"round,pad=0.001,rounding_size={h*0.45}",
@@ -935,7 +938,8 @@ else:
             )
             fig.text(x + pad_x, y - h*0.33, s, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight=weight)
-            x += w + 0.006
+            x += w + gap_x
+            per_row += 1
         return y - row_gap
 
     # roles row — font +1
@@ -1133,11 +1137,11 @@ else:
 
     # ----------------- chips + roles (tuned spacing) -----------------
     y = 0.874
-    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1)
-    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
-    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
+    y = chip_row_exact(fig, strengths or [],  y, CHIP_G_BG, fs=10.1, max_per_row=5)
+    y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1, max_per_row=5)
+    y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1, max_per_row=5)
 
-    # (3) roles row brought slightly closer to chips (was 0.003)
+    # (3) roles row brought slightly closer to chips
     y -= 0.015
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1212,6 +1216,7 @@ else:
                        mime="image/png")
 
 # ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed + micro) ============================
+
 
 
 
