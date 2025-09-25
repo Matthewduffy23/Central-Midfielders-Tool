@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM BARS + ATTACKING-GAP SPACING ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS + UNIFORM PIXEL GAPS (match Attacking) ============================
 
 from io import BytesIO
 import numpy as np
@@ -914,11 +914,11 @@ else:
         h_px = t.get_window_extent(renderer=r).height; t.remove()
         return h_px / fig.bbox.height
 
-    # ultra-tight chips — row gap HALVED
+    # ultra-tight chips — spacing slightly reduced (not halved)
     def chip_row_exact(fig, items, y, bg, *, fs=10.1, weight="900", max_rows=2, gap_x=0.006):
         if not items: return y
         x0 = x = 0.035
-        row_gap = 0.017          # was 0.034 → half
+        row_gap = 0.026          # was 0.034 → slightly reduced
         pad_x = 0.004
         pad_y = 0.002
         h = _text_height_frac(fig, "Hg", fontsize=fs, weight=weight) + pad_y*2
@@ -938,14 +938,14 @@ else:
             x += w + gap_x
         return y - row_gap
 
-    # Roles row — row gap HALVED
+    # Roles row — spacing slightly reduced (not halved)
     def roles_row_tight(fig, rs: dict, y, *, fs=9.6):
         if not isinstance(rs, dict) or not rs: return y
         rs = {k: v for k, v in rs.items() if k.strip().lower() != "all in"}
         if not rs: return y
 
         x0 = x = 0.035
-        row_gap = 0.020          # was 0.040 → half
+        row_gap = 0.032          # was 0.040 → slightly reduced
         gap = 0.003
         pad_x = 0.006
         pad_y = 0.003
@@ -966,21 +966,17 @@ else:
             if x + total > 0.965:
                 x = x0; y -= row_gap
 
-            fig.patches.append(
-                mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
-                    transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none")
-            )
+            fig.patches.append(mpatches.FancyBboxPatch((x, y - role_h*0.78), role_w, role_h,
+                              boxstyle=f"round,pad=0.001,rounding_size={role_h*0.45}",
+                              transform=fig.transFigure, facecolor=ROLE_GREY, edgecolor="none"))
             fig.text(x + pad_x, y - role_h*0.33, r, fontsize=fs, color="#FFFFFF",
                      va="center", ha="left", fontweight="800")
 
             R,G,B = [int(255*c) for c in div_color_tuple(v)]
             bx = x + role_w + gap
-            fig.patches.append(
-                mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
-                    boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
-                    transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none")
-            )
+            fig.patches.append(mpatches.FancyBboxPatch((bx, y - num_h*0.78), num_w, num_h,
+                              boxstyle=f"round,pad=0.001,rounding_size={num_h*0.45}",
+                              transform=fig.transFigure, facecolor=f"#{R:02x}{G:02x}{B:02x}", edgecolor="none"))
             fig.text(bx + num_w/2, y - num_h*0.33, num_text, fontsize=fs-0.6, color="#FFFFFF",
                      va="center", ha="center", fontweight="900")
 
@@ -1004,11 +1000,13 @@ else:
         if "per 90" in m or "xg" in m or "xa" in m: return v, f"{v:.2f}"
         return v, f"{v:.2f}"
 
-    # -------- Bars: uniform pixel thickness; ATTACKING-LIKE GAPS everywhere --------
-    BASE_BAR_H = 0.72
-    BASE_GAP_H = 0.08  # keep constant (no scaling) → gaps look like Attacking in every panel
+    # -------- Bars: match Attacking bar height AND gap in pixels across all panels --------
+    # "Base" sizes are defined in Attacking's data units. Other panels are scaled so the
+    # rendered pixel height & gap equal Attacking's, even with different panel heights / row counts.
+    BASE_BAR_H = 0.72   # Attacking bar thickness in data units
+    BASE_GAP_H = 0.08   # Attacking gap (track slack) in data units
 
-    def bar_panel(fig, left, bottom, width, height, title, triples, max_rows_shared, ref_height):
+    def bar_panel(fig, left, bottom, width, height, title, triples, ref_n, ref_height):
         ax = fig.add_axes([left, bottom, width, height])
         ax.set_facecolor(PANEL_BG)
 
@@ -1017,32 +1015,29 @@ else:
         texts  = [t[2] for t in triples]
         n = len(labels)
 
-        # Shared y-scale across panels so geometry is consistent
+        # Per-panel vertical grid (standard y = 0..n-1)
+        y_idx = np.arange(n)[::-1]
         ax.set_xlim(0, 100)
-        ax.set_ylim(-0.5, max_rows_shared - 0.5)
+        ax.set_ylim(-0.5, n - 0.5)
 
-        # Place n rows evenly within that shared space
-        if n > 0:
-            step = max_rows_shared / n
-            y_centers = (np.arange(n)[::-1]) * step + (step/2 - 0.5)
-        else:
-            y_centers = np.array([])
+        # Pixel equalization scale:
+        # pixels per data-unit in Attacking:  (ref_height * fig_h_px) / ref_n
+        # pixels per data-unit in this panel: (height    * fig_h_px) / n
+        # -> scale so bar/gap data-height here produces the same pixels as in Attacking
+        scale = (ref_height * n) / (height * ref_n) if (height > 0 and ref_n > 0 and n > 0) else 1.0
+        bar_h = BASE_BAR_H * scale
+        gap_h = BASE_GAP_H * scale
 
-        # Thickness matches Possession (uniform pixels); gaps fixed (Attacking look)
-        scale_for_bar = (ref_height / height) if height > 0 else 1.0
-        bar_h = BASE_BAR_H * scale_for_bar
-        gap_h = BASE_GAP_H                      # <- do NOT scale gaps
-
-        # Tracks + fills + value text
-        for yc in y_centers:
-            ax.add_patch(mpatches.Rectangle((0, yc - bar_h/2 - gap_h/2), 100, bar_h + gap_h,
+        # Tracks first (for consistent gaps), then fills + value text
+        for yi in y_idx:
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_h/2 - gap_h/2), 100, bar_h + gap_h,
                                             facecolor=TRACK_BG, edgecolor='none'))
-        for yc, v, t in zip(y_centers, pcts, texts):
-            ax.add_patch(mpatches.Rectangle((0, yc - bar_h/2), v, bar_h,
+        for yi, v, t in zip(y_idx, pcts, texts):
+            ax.add_patch(mpatches.Rectangle((0, yi - bar_h/2), v, bar_h,
                                             facecolor=div_color_tuple(v), edgecolor='none'))
-            ax.text(1.0, yc, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
+            ax.text(1.0, yi, t, va="center", ha="left", color="#0B0B0B", fontsize=9.0, weight="900")
 
-        ax.set_yticks(y_centers)
+        ax.set_yticks(y_idx)
         ax.set_yticklabels(labels, color=TEXT, fontsize=10.6, fontweight="bold")
         for sp in ax.spines.values(): sp.set_visible(False)
         ax.tick_params(axis="x", labelsize=0, length=0)
@@ -1056,12 +1051,13 @@ else:
     fig.patch.set_facecolor(PAGE_BG)
 
     ply = player_row.iloc[0]
-    team = str(ply.get("Team","?")); league = str(ply.get("League","?"))
-    pos  = str(ply.get("Position","?"))
-    age  = int(ply["Age"]) if pd.notna(ply.get("Age")) else None
-    mins = int(ply.get("Minutes played", np.nan)) if pd.notna(ply.get("Minutes played")) else None
-    matches = int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
-    goals = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
+    team   = str(ply.get("Team","?"))
+    league = str(ply.get("League","?"))
+    pos    = str(ply.get("Position","?"))
+    age    = int(ply["Age"]) if pd.notna(ply.get("Age")) else None
+    mins   = int(ply.get("Minutes played", np.nan)) if pd.notna(ply.get("Minutes played")) else None
+    matches= int(ply.get("Matches played", np.nan)) if pd.notna(ply.get("Matches played")) else None
+    goals  = int(ply.get("Goals", np.nan)) if pd.notna(ply.get("Goals")) else 0
 
     if "xG" in ply.index and pd.notna(ply["xG"]):
         xg_total = float(ply["xG"])
@@ -1069,8 +1065,9 @@ else:
         xg_per90 = float(ply.get("xG per 90", np.nan)) if pd.notna(ply.get("xG per 90")) else np.nan
         xg_total = float(xg_per90) * (float(mins) / 90.0) if (pd.notna(xg_per90) and mins) else np.nan
     xg_total_str = f"{xg_total:.2f}" if pd.notna(xg_total) else "—"
-    assists = int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
+    assists= int(ply.get("Assists", np.nan)) if pd.notna(ply.get("Assists")) else 0
 
+    # Name + badge
     name_fs = 25
     name_text = fig.text(0.035, 0.962, f"{player_name}", color="#FFFFFF",
                          fontsize=name_fs, fontweight="900", va="top", ha="left")
@@ -1089,9 +1086,11 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
                  fontsize=15.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    meta = (f"{pos} — {team} — {league} — Age {age if age else '—'} — "
-            f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
-            f"Goals {goals} — xG {xg_total_str} — Assists {assists}")
+    meta = (
+        f"{pos} — {team} — {league} — Age {age if age else '—'} — "
+        f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
+        f"Goals {goals} — xG {xg_total_str} — Assists {assists}"
+    )
     fig.text(0.035, 0.912, meta, color="#FFFFFF", fontsize=12.2)
 
     # ----------------- chips + roles -----------------
@@ -1149,24 +1148,22 @@ else:
         ("Smart passes", "Smart passes per 90"),
     ]: POSSESSION.append((lab, pct_of(met), val_of(met)[1]))
 
-    # Shared y-scale across panels
-    MAX_ROWS = max(len(ATTACKING), len(DEFENSIVE), len(POSSESSION))
-
-    # Layout
+    # Layout + reference (Attacking panel drives the pixel geometry)
     LEFT, RIGHT = 0.060, 0.540
     WIDTH_L, WIDTH_R = 0.37, 0.36
     HEIGHT_A_D, HEIGHT_P = 0.245, 0.525
     BTM_A, BTM_D, BTM_P = 0.410, 0.130, 0.130
 
-    # Use Possession height as reference for bar thickness
-    REF_HEIGHT = HEIGHT_P
+    REF_N = len(ATTACKING)       # Attacking rows
+    REF_H = HEIGHT_A_D           # Attacking panel height (reference)
 
+    # Panels
     bar_panel(fig, left=LEFT,  bottom=BTM_A, width=WIDTH_L, height=HEIGHT_A_D,
-              title="Attacking",  triples=ATTACKING,  max_rows_shared=MAX_ROWS, ref_height=REF_HEIGHT)
+              title="Attacking",  triples=ATTACKING,  ref_n=REF_N, ref_height=REF_H)
     bar_panel(fig, left=LEFT,  bottom=BTM_D, width=WIDTH_L, height=HEIGHT_A_D,
-              title="Defensive",  triples=DEFENSIVE,  max_rows_shared=MAX_ROWS, ref_height=REF_HEIGHT)
+              title="Defensive",  triples=DEFENSIVE,  ref_n=REF_N, ref_height=REF_H)
     bar_panel(fig, left=RIGHT, bottom=BTM_P, width=WIDTH_R, height=HEIGHT_P,
-              title="Possession", triples=POSSESSION, max_rows_shared=MAX_ROWS, ref_height=REF_HEIGHT)
+              title="Possession", triples=POSSESSION, ref_n=REF_N, ref_height=REF_H)
 
     # ----------------- render + download -----------------
     st.pyplot(fig, use_container_width=True)
@@ -1176,7 +1173,7 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
-# ============================ END — UNIFORM BARS + ATTACKING-GAP SPACING ============================
+# ============================ END — UNIFORM PIXEL BARS + UNIFORM PIXEL GAPS ============================
 
 
 
