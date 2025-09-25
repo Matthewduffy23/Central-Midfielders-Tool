@@ -1117,7 +1117,7 @@ else:
     for txt, weight in runs:
         fig.text(x_meta, y_meta, txt, color="#FFFFFF", fontsize=12.2,
                  fontweight=("900" if weight == "bold" else "normal"), ha="left", va="center")
-        x_meta += _text_width_frac(fig, txt, fontsize=15,
+        x_meta += _text_width_frac(fig, txt, fontsize=13.5,
                                    weight=("900" if weight == "bold" else "normal")) + (gap if txt.strip() else 0)
 
     # ----------------- chips + roles (tuned spacing) -----------------
