@@ -884,11 +884,11 @@ if player_row.empty:
     st.info("Pick a player above.")
 else:
     # --------- palette / tokens ---------
-    PAGE_BG   = "#0C0F14"
+    PAGE_BG   = "0a0f1c"
     PANEL_BG  = "#11161C"
     TRACK_BG  = "#2C323A"
     TEXT      = "#E5E7EB"
-    ROLE_GREY = "#3A4048"
+    ROLE_GREY = "#737373"
 
     CHIP_G_BG = "#22C55E"; CHIP_R_BG = "#EF4444"; CHIP_B_BG = "#60A5FA"
 
