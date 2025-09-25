@@ -671,6 +671,10 @@ STYLE_MAP = {
         'style': None,
         'sw': 'Aerial Duels',
     },
+    'Defensive duels won, %': {
+        'style': None,
+        'sw': 'Tackling %',
+    },
     'Long Passes per 90': {
         'style': 'Long Passer',
         'sw': None,
