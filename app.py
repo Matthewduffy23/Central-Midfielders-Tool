@@ -871,7 +871,7 @@ st.dataframe(styled, use_container_width=True)
 # ============== BELOW THE NOTES: 3 EXTRA FEATURE BLOCKS ==============
 # =====================================================================
 
-# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5) ============================
+# ============================ (E) ONE-PAGER — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed) ============================
 
 from io import BytesIO
 import numpy as np
@@ -886,7 +886,7 @@ else:
     # --------- palette / tokens ---------
     PAGE_BG   = "#0a0f1c"
     PANEL_BG  = "#11161C"
-    TRACK_BG  = "#222c3d"   # (1) slightly lighter track for better contrast
+    TRACK_BG  = "#222c3d"   # clearer contrast vs page bg
     TEXT      = "#E5E7EB"
     ROLE_GREY = "#737373"
 
@@ -1005,7 +1005,7 @@ else:
     GAP_PX = 6
     SEP_PX = 2
     STEP_PX = BAR_PX + GAP_PX
-    LABEL_FS = 11.0  # (2) metric label font size up from 10.6
+    LABEL_FS = 11.0  # metric label font size (up from 10.6)
 
     def bar_panel(fig, left, top, width, n_rows, title, triples):
         fig.canvas.draw()
@@ -1030,7 +1030,7 @@ else:
         ax.set_ylim(-0.5, n - 0.5)
         y_idx = np.arange(n)[::-1]
 
-        # tracks with a tiny “breathing” separation
+        # tracks with a tiny separation
         track_h = bar_du + gap_du - sep_du
         for yi in y_idx:
             ax.add_patch(mpatches.Rectangle((0, yi - track_h/2), 100, track_h,
@@ -1050,9 +1050,9 @@ else:
         # midline at 50th percentile
         ax.axvline(50, color="#94A3B8", linestyle=":", linewidth=1.2, zorder=2)
 
-        # (3) panel title + subtle underline (thin rule at the very top inside the axis)
+        # title + subtle underline (use Axes coords safely)
         ax.set_title(title, color=TEXT, fontsize=20, pad=8, fontweight="900")
-        ax.axhline(1.0, transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
+        ax.plot([0, 1], [1, 1], transform=ax.transAxes, color="#94A3B8", linewidth=0.8, alpha=0.35)
 
         return bottom
 
@@ -1100,7 +1100,7 @@ else:
         fig.text(badge_x + bw/2, by + bh/2 - 0.0005, f"{int(round(best_val))}",
                  fontsize=17.8, color="#FFFFFF", va="center", ha="center", fontweight="900")
 
-    # (4) Info row moved UP slightly (closer to the title/badge)
+    # Info row (nudged up)
     meta = (
         f"{pos} — {team} — {league} — Age {age if age else '—'} — "
         f"Minutes {mins if mins else '—'} — Matches {matches if matches else '—'} — "
@@ -1114,7 +1114,7 @@ else:
     y = chip_row_exact(fig, weaknesses or [], y, CHIP_R_BG, fs=10.1)
     y = chip_row_exact(fig, styles or [],     y, CHIP_B_BG, fs=10.1)
 
-    # (5) Roles row nudged DOWN a bit less than before (net effect: visually higher / better align)
+    # roles row (slightly higher than before)
     y -= 0.005
     y = roles_row_tight(fig, role_scores if isinstance(role_scores, dict) else {}, y, fs=10.6)
 
@@ -1188,7 +1188,7 @@ else:
                        file_name=f"{str(player_name).replace(' ','_')}_onepager.png",
                        mime="image/png")
 
-# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5) ============================
+# ============================ END — UNIFORM PIXEL BARS & FLEX PANELS (polish +5, fixed) ============================
 
 
 
