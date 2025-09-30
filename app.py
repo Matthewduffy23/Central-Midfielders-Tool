@@ -1304,7 +1304,7 @@ else:
 
 # ============================ END — WIDER PANELS, SMALLER CENTER GAP, EXTRA TOP-LEFT PADDING ============================
 
-# ============================ (F) THREE-PANEL PERCENTILE BOARD — Tight gutter, centered % with edge offsets ============================
+# ============================ (F) THREE-PANEL PERCENTILE BOARD — Uniform rows + visible gridlines (numbers centered; custom % at 0/100) ============================
 from io import BytesIO
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1316,18 +1316,6 @@ st.header("📋 Feature F — Percentile Board (uniform rows)")
 if player_row.empty:
     st.info("Pick a player above.")
 else:
-    # ------------------- knobs you may tweak quickly -------------------
-    BAR_FRAC                = 0.85     # vertical thickness of each bar within its row slot
-    GRID_ALPHA              = 0.16     # strength of vertical gridlines (10th percentile)
-    TICK_LEN                = 0.03     # tiny tick length (as axis-relative units)
-    TICK_ALPHA              = 0.60     # tick mark opacity
-    FOOTER_FS               = 9
-    # Percent-sign offsets (points). Inner = 10..90; edges have their own.
-    INNER_PCT_OFFSET_PT     = 7
-    EDGE_PCT_OFFSET_0_PT    = 4
-    EDGE_PCT_OFFSET_100_PT  = 10
-    # -------------------------------------------------------------------
-
     # ----- assemble sections from your existing calcs -----
     ATTACKING = []
     for lab, met in [
@@ -1384,15 +1372,15 @@ else:
     # ----- styling (dark Tableau-ish canvas) -----
     PAGE_BG = "#0a0f1c"
     AX_BG   = "#0f151f"
-    TRACK   = "#1b2636"   # slightly darker for more bar contrast
+    TRACK   = "#1b2636"
     TITLE   = "#f3f5f7"
     LABEL   = "#e8eef8"
     DIVIDER = "#ffffff"
 
     # Tableau-like diverging ramp (0→red, 50→gold, 100→green)
-    TAB_RED   = np.array([199, 54, 60], dtype=float)     # #C7363C
-    TAB_GOLD  = np.array([240, 197, 106], dtype=float)   # #F0C56A
-    TAB_GREEN = np.array([61, 166, 91], dtype=float)     # #3DA65B
+    TAB_RED   = np.array([199, 54, 60], dtype=float)    # #C7363C
+    TAB_GOLD  = np.array([240, 197, 106], dtype=float)  # #F0C56A
+    TAB_GREEN = np.array([61, 166, 91], dtype=float)    # #3DA65B
 
     def _blend(c1, c2, t):
         c = c1 + (c2 - c1) * np.clip(t, 0.0, 1.0)
@@ -1410,21 +1398,24 @@ else:
     left_margin  = 0.035
     right_margin = 0.020
     top_margin   = 0.035
-    bot_margin   = 0.070
-    header_h     = 0.060
+    bot_margin   = 0.07
+    header_h     = 0.06
     gap_between  = 0.020
 
     rows_space_total = 1 - (top_margin + bot_margin) - header_h * len(sections) - gap_between * (len(sections) - 1)
     row_slot = rows_space_total / max(total_rows, 1)
+    BAR_FRAC = 0.85
 
-    # --- tight, but dynamic gutter (measures label width then clamps small) ---
-    probe = fig.text(0, 0, "Successful Defensive Actions", fontsize=10, fontweight="bold", color=LABEL, alpha=0)
+    # label gutter width
+    probe = fig.text(0, 0, "Successful Defensive Actions", fontsize=11, fontweight="bold", color=LABEL, alpha=0)
     fig.canvas.draw()
     lab_w = probe.get_window_extent(renderer=fig.canvas.get_renderer()).width / fig.bbox.width
     probe.remove()
-    gutter = max(0.055, min(0.065, lab_w + 0.010))   # ~5.5–6.5% of figure width
+    gutter = 0.215
 
     ticks = np.arange(0, 101, 10)  # 0,10,...,100
+
+    # visual center for footer text
     x_center_plot = (left_margin + gutter + (1 - right_margin)) / 2.0
 
     def draw_panel(panel_top, title, tuples, *, show_xticks=False, draw_bottom_divider=True):
@@ -1445,64 +1436,74 @@ else:
         ax.set_facecolor(AX_BG)
         ax.set_xlim(0, 100)
         ax.set_ylim(-0.5, n - 0.5)
-        for s in ax.spines.values(): s.set_visible(False)
+
+        # Hide default spines/ticks; draw custom
+        for s in ax.spines.values():
+            s.set_visible(False)
         ax.tick_params(axis="x", bottom=False, labelbottom=False, length=0)
 
-        # Tracks
+        # ---- Tracks ----
         for i in range(n):
             y = i
             ax.add_patch(plt.Rectangle((0, y - (BAR_FRAC/2)), 100, BAR_FRAC,
                                        color=TRACK, ec="none", zorder=0.5))
 
-        # Vertical gridlines (every 10%)
+        # ---- Vertical gridlines at each 10% ----
         for gx in ticks:
-            ax.vlines(gx, -0.5, n - 0.5, colors=(1, 1, 1, GRID_ALPHA), linewidth=0.8, zorder=0.75)
+            ax.vlines(gx, -0.5, n - 0.5, colors=(1, 1, 1, 0.16), linewidth=0.8, zorder=0.75)
 
-        # Bars + values
+        # ---- Bars + value labels ----
         for i, (lab, pct, val_str) in enumerate(tuples[::-1]):  # reverse for top-first
             y = i
-            w = float(np.clip(pct, 0, 100))
-            ax.add_patch(plt.Rectangle((0, y - (BAR_FRAC/2)), w, BAR_FRAC,
-                                       color=pct_to_rgb(w), ec="none", zorder=1.0))
+            bar_w = max(0.0, min(100.0, float(pct)))
+            ax.add_patch(plt.Rectangle((0, y - (BAR_FRAC/2)), bar_w, BAR_FRAC,
+                                       color=pct_to_rgb(bar_w), ec="none", zorder=1.0))
             ax.text(1.0, y, val_str, ha="left", va="center",
                     fontsize=8, fontweight="400", color="#0B0B0B", zorder=2.0)
 
-        # 50% reference (dotted, over bars)
+        # ---- Dotted 50% reference line (over bars) ----
         ax.axvline(50, color="#FFFFFF", ls=(0, (4, 4)), lw=1.5, alpha=0.85, zorder=3.5)
 
-        # Left gutter labels
+        # Metric labels in left gutter
         for i, (lab, _, _) in enumerate(tuples[::-1]):
             y_fig = (panel_top - header_h - n*row_slot) + ((i + 0.5) * row_slot)
             fig.text(left_margin, y_fig, lab, ha="left", va="center",
                      fontsize=10, fontweight="bold", color=LABEL)
 
-        # Bottom ticks and labels (only last panel)
+        # ---- Manually centered bottom ticks ONLY on last panel ----
         if show_xticks:
             trans = ax.get_xaxis_transform()  # x in data, y in axis coords
-            off_inner = ScaledTranslation(INNER_PCT_OFFSET_PT/72,  0, fig.dpi_scale_trans)
-            off_0     = ScaledTranslation(EDGE_PCT_OFFSET_0_PT/72, 0, fig.dpi_scale_trans)
-            off_100   = ScaledTranslation(EDGE_PCT_OFFSET_100_PT/72,0, fig.dpi_scale_trans)
-            y_lbl = -0.075
+
+            # Adjustable offsets in points (pt) → convert to inches via /72
+            INNER_PCT_OFFSET_PT    = 7   # offset for the "%" on inner ticks (keeps digits visually centered)
+            EDGE_PCT_OFFSET_0_PT   = 4   # offset for "%" at 0  (push right)
+            EDGE_PCT_OFFSET_100_PT = 10   # offset for "%" at 100 (push right)
+
+            offset_inner = ScaledTranslation(INNER_PCT_OFFSET_PT/72, 0, fig.dpi_scale_trans)
+            offset_pct_0 = ScaledTranslation(EDGE_PCT_OFFSET_0_PT/72, 0, fig.dpi_scale_trans)
+            offset_pct_100 = ScaledTranslation(EDGE_PCT_OFFSET_100_PT/72, 0, fig.dpi_scale_trans)
+
+            y_label = -0.075
 
             for gx in ticks:
-                # tiny outward tick
-                ax.plot([gx, gx], [-TICK_LEN, 0.0], transform=trans,
-                        color=(1, 1, 1, TICK_ALPHA), lw=1.1, clip_on=False, zorder=4)
-                # centered number
-                ax.text(gx, y_lbl, f"{int(gx)}", transform=trans,
+                # tiny tick mark
+                ax.plot([gx, gx], [-0.03, 0.0], transform=trans,
+                        color=(1, 1, 1, 0.6), lw=1.1, clip_on=False, zorder=4)
+                # number centered on gridline
+                ax.text(gx, y_label, f"{int(gx)}", transform=trans,
                         ha="center", va="top", fontsize=10, fontweight="700",
                         color="#FFFFFF", zorder=4, clip_on=False)
-                # percent sign (offset to keep digits visually centered)
+                # percent sign with custom offsets
                 if gx == 0:
-                    ax.text(gx, y_lbl, "%", transform=trans + off_0,
+                    ax.text(gx, y_label, "%", transform=trans + offset_pct_0,
                             ha="left", va="top", fontsize=10, fontweight="700",
                             color="#FFFFFF", zorder=4, clip_on=False)
                 elif gx == 100:
-                    ax.text(gx, y_lbl, "%", transform=trans + off_100,
+                    ax.text(gx, y_label, "%", transform=trans + offset_pct_100,
                             ha="left", va="top", fontsize=10, fontweight="700",
                             color="#FFFFFF", zorder=4, clip_on=False)
                 else:
-                    ax.text(gx, y_lbl, "%", transform=trans + off_inner,
+                    ax.text(gx, y_label, "%", transform=trans + offset_inner,
                             ha="left", va="top", fontsize=10, fontweight="700",
                             color="#FFFFFF", zorder=4, clip_on=False)
 
@@ -1515,14 +1516,13 @@ else:
 
     # Render panels; only the last shows tick labels
     y_top = 1 - top_margin
-    for i, (title, data) in enumerate(sections):
-        y_top = draw_panel(y_top, title, data,
-                           show_xticks=(i == len(sections) - 1),
-                           draw_bottom_divider=(i != len(sections) - 1))
+    for idx, (title, data) in enumerate(sections):
+        is_last = (idx == len(sections) - 1)
+        y_top = draw_panel(y_top, title, data, show_xticks=is_last, draw_bottom_divider=not is_last)
 
-    # Footer
-    fig.text(x_center_plot, bot_margin * 0.10, "Percentile Rank",
-             ha="center", va="center", fontsize=FOOTER_FS, fontweight="bold", color=LABEL)
+    # Bottom caption — slightly lower
+    fig.text(x_center_plot, bot_margin * 0.1, "Percentile Rank",
+             ha="center", va="center", fontsize=9, fontweight="bold", color=LABEL)
 
     st.pyplot(fig, use_container_width=True)
 
@@ -1533,8 +1533,7 @@ else:
                        data=buf.getvalue(),
                        file_name=f"{str(player_name).replace(' ','_')}_featureF.png",
                        mime="image/png")
-# ============================ END — Feature F (tight gutter) ============================
-
+# ============================ END — Feature F ============================
 
 
 
