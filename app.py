@@ -1345,9 +1345,9 @@ else:
 
     POSSESSION = []
     for lab, met in [
-        ("Deep completions", "Deep completions per 90"),
+        ("Deep Completions", "Deep completions per 90"),
         ("Dribbles", "Dribbles per 90"),
-        ("Dribbling %", "Successful dribbles, %"),
+        ("Dribbling Success %", "Successful dribbles, %"),
         ("Forward Passes", "Forward passes per 90"),
         ("Forward Passing %", "Accurate forward passes, %"),
         ("Key passes", "Key passes per 90"),
@@ -1357,8 +1357,8 @@ else:
         ("Passing %", "Accurate passes, %"),
         ("Passes to Final 3rd", "Passes to final third per 90"),
         ("Passes to Final 3rd %", "Accurate passes to final third, %"),
-        ("Passes to Pen Area", "Passes to penalty area per 90"),
-        ("Pass to Pen Area %", "Accurate passes to penalty area, %"),
+        ("Passes to Penalty Area", "Passes to penalty area per 90"),
+        ("Pass to Penalty Area %", "Accurate passes to penalty area, %"),
         ("Progessive Passes", "Progressive passes per 90"),
         ("Progessive Passing %", "Accurate progressive passes, %"),
         ("Progressive Runs", "Progressive runs per 90"),
