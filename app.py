@@ -1411,7 +1411,7 @@ else:
     fig.canvas.draw()
     lab_w = probe.get_window_extent(renderer=fig.canvas.get_renderer()).width / fig.bbox.width
     probe.remove()
-    gutter = 0.2
+    gutter = 0.25
 
     ticks = np.arange(0, 101, 10)  # 0,10,...,100
 
